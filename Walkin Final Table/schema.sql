@@ -4,8 +4,8 @@
 -- Description:
 -- Master table unifying three independent walk-in event sources:
 --   1. public.sheet_walkins (Google Sheet form entries synced via Apps Script)
---   2. public.july_new_walkins (Portal onboarding form for new candidates)
---   3. public.july_existing_walkins (Portal visit logs for active partners)
+--   2. public.portal_new_walkins (Portal onboarding form for new candidates)
+--   3. public.portal_existing_walkins (Portal visit logs for active partners)
 --
 -- Standardization Philosophy:
 --   - Clean Timestamps (No +05:30 offset):
@@ -24,7 +24,7 @@
 --       * Deletions in source tables soft-delete rows (is_deleted = TRUE, deleted_at = NOW())
 --       * Zero hard data destruction, ensuring complete auditability and continuous ID sequence
 --   - Zero Changes to Source Tables:
---       * sheet_walkins, july_new_walkins, july_existing_walkins remain 100% untouched
+--       * sheet_walkins, portal_new_walkins, portal_existing_walkins remain 100% untouched
 -- =============================================================================
 
 -- 1. Master Table Definition
@@ -33,10 +33,10 @@ CREATE TABLE IF NOT EXISTS public.core_walkin (
     
     -- Provenance & Source References
     source_system VARCHAR(50) NOT NULL, -- 'GOOGLE_SHEET', 'PORTAL_NEW', 'PORTAL_EXISTING'
-    source_table VARCHAR(100) NOT NULL, -- 'sheet_walkins', 'july_new_walkins', 'july_existing_walkins'
+    source_table VARCHAR(100) NOT NULL, -- 'sheet_walkins', 'portal_new_walkins', 'portal_existing_walkins'
     sheet_walkin_id BIGINT,             -- Pointer to sheet_walkins.id
-    portal_new_walkin_id INTEGER,       -- Pointer to july_new_walkins.id
-    portal_existing_walkin_id INTEGER,  -- Pointer to july_existing_walkins.id
+    portal_new_walkin_id INTEGER,       -- Pointer to portal_new_walkins.id
+    portal_existing_walkin_id INTEGER,  -- Pointer to portal_existing_walkins.id
     walkin_type VARCHAR(50) NOT NULL,   -- 'NEW_CANDIDATE', 'EXISTING_PARTNER'
     
     -- Temporal & Location (Clean IST Timestamps without +05:30)
@@ -277,7 +277,7 @@ AFTER INSERT OR UPDATE OR DELETE ON public.sheet_walkins
 FOR EACH ROW EXECUTE FUNCTION fn_sync_core_walkin_from_sheet();
 
 -- -----------------------------------------------------------------------------
--- 3. Trigger Function: Sync from july_new_walkins
+-- 3. Trigger Function: Sync from portal_new_walkins
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.fn_sync_core_walkin_from_portal_new()
 RETURNS TRIGGER AS $$
@@ -296,7 +296,7 @@ DECLARE
     v_exec_name VARCHAR(255);
     v_exec_email VARCHAR(255);
 BEGIN
-    -- FAIL-SAFE BLOCK: Guarantees that source table july_new_walkins is NEVER impacted
+    -- FAIL-SAFE BLOCK: Guarantees that source table portal_new_walkins is NEVER impacted
     BEGIN
         IF TG_OP = 'DELETE' THEN
         UPDATE public.core_walkin
@@ -355,8 +355,8 @@ BEGIN
         COALESCE(NULLIF(TRIM(CONCAT(e.first_name, ' ', e.last_name)), ''), pu.username, 'Executive'),
         COALESCE(pu.email, e.company_email, '')
     INTO v_exec_name, v_exec_email
-    FROM public.july_portal_users pu
-    LEFT JOIN public.july_employees e ON e.employee_id = pu.employee_id
+    FROM public.portal_portal_users pu
+    LEFT JOIN public.portal_employees e ON e.employee_id = pu.employee_id
     WHERE pu.portal_user_id = COALESCE(NEW.created_by, NEW.executive_id)
     LIMIT 1;
 
@@ -376,7 +376,7 @@ BEGIN
             sheet_row_number, is_deleted, deleted_at, created_at, updated_at
         ) VALUES (
             v_next_id,
-            'PORTAL_NEW', 'july_new_walkins', NULL, NEW.id, NULL,
+            'PORTAL_NEW', 'portal_new_walkins', NULL, NEW.id, NULL,
             'NEW_CANDIDATE', v_date, v_time_str, v_ts, v_clean_city, LEFT(NEW.operating_place, 150),
             v_full_name, v_f_name, v_l_name, v_clean_phone, LEFT(COALESCE(NEW.interested_position, 'Driver'), 100),
             LEFT(NEW.dl_number, 50), LEFT(NEW.aadhaar_number, 50), NEW.dl_image, NEW.aadhaar_image,
@@ -435,7 +435,7 @@ BEGIN
                 sheet_row_number, is_deleted, deleted_at, created_at, updated_at
             ) VALUES (
                 v_next_id,
-                'PORTAL_NEW', 'july_new_walkins', NULL, NEW.id, NULL,
+                'PORTAL_NEW', 'portal_new_walkins', NULL, NEW.id, NULL,
                 'NEW_CANDIDATE', v_date, v_time_str, v_ts, v_clean_city, LEFT(NEW.operating_place, 150),
                 v_full_name, v_f_name, v_l_name, v_clean_phone, LEFT(COALESCE(NEW.interested_position, 'Driver'), 100),
                 LEFT(NEW.dl_number, 50), LEFT(NEW.aadhaar_number, 50), NEW.dl_image, NEW.aadhaar_image,
@@ -447,7 +447,7 @@ BEGIN
             PERFORM setval('public.core_walkin_id_seq', v_next_id, true);
         END IF;
     EXCEPTION WHEN OTHERS THEN
-        -- Fail-safe decoupling: Guarantees that source table july_new_walkins operations NEVER fail
+        -- Fail-safe decoupling: Guarantees that source table portal_new_walkins operations NEVER fail
         RAISE WARNING 'core_walkin sync warning for portal_new: %', SQLERRM;
     END;
     IF TG_OP = 'DELETE' THEN
@@ -457,13 +457,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS trg_sync_core_walkin_from_portal_new ON public.july_new_walkins;
+DROP TRIGGER IF EXISTS trg_sync_core_walkin_from_portal_new ON public.portal_new_walkins;
 CREATE TRIGGER trg_sync_core_walkin_from_portal_new
-AFTER INSERT OR UPDATE OR DELETE ON public.july_new_walkins
+AFTER INSERT OR UPDATE OR DELETE ON public.portal_new_walkins
 FOR EACH ROW EXECUTE FUNCTION fn_sync_core_walkin_from_portal_new();
 
 -- -----------------------------------------------------------------------------
--- 4. Trigger Function: Sync from july_existing_walkins
+-- 4. Trigger Function: Sync from portal_existing_walkins
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.fn_sync_core_walkin_from_portal_existing()
 RETURNS TRIGGER AS $$
@@ -481,7 +481,7 @@ DECLARE
     v_exec_name VARCHAR(255);
     v_exec_email VARCHAR(255);
 BEGIN
-    -- FAIL-SAFE BLOCK: Guarantees that source table july_existing_walkins is NEVER impacted
+    -- FAIL-SAFE BLOCK: Guarantees that source table portal_existing_walkins is NEVER impacted
     BEGIN
         IF TG_OP = 'DELETE' THEN
         UPDATE public.core_walkin
@@ -534,8 +534,8 @@ BEGIN
         COALESCE(NULLIF(TRIM(CONCAT(e.first_name, ' ', e.last_name)), ''), pu.username, 'Executive'),
         COALESCE(pu.email, e.company_email, '')
     INTO v_exec_name, v_exec_email
-    FROM public.july_portal_users pu
-    LEFT JOIN public.july_employees e ON e.employee_id = pu.employee_id
+    FROM public.portal_portal_users pu
+    LEFT JOIN public.portal_employees e ON e.employee_id = pu.employee_id
     WHERE pu.portal_user_id = COALESCE(NEW.created_by, NEW.executive_id)
     LIMIT 1;
 
@@ -555,7 +555,7 @@ BEGIN
             sheet_row_number, is_deleted, deleted_at, created_at, updated_at
         ) VALUES (
             v_next_id,
-            'PORTAL_EXISTING', 'july_existing_walkins', NULL, NULL, NEW.id,
+            'PORTAL_EXISTING', 'portal_existing_walkins', NULL, NULL, NEW.id,
             'EXISTING_PARTNER', v_date, v_time_str, v_ts, v_clean_city, NULL,
             v_full_name, v_f_name, v_l_name, v_clean_phone, LEFT(COALESCE(NEW.partner_type, 'Driver'), 100),
             NULL, NULL, NULL, NULL,
@@ -603,7 +603,7 @@ BEGIN
                 sheet_row_number, is_deleted, deleted_at, created_at, updated_at
             ) VALUES (
                 v_next_id,
-                'PORTAL_EXISTING', 'july_existing_walkins', NULL, NULL, NEW.id,
+                'PORTAL_EXISTING', 'portal_existing_walkins', NULL, NULL, NEW.id,
                 'EXISTING_PARTNER', v_date, v_time_str, v_ts, v_clean_city, NULL,
                 v_full_name, v_f_name, v_l_name, v_clean_phone, LEFT(COALESCE(NEW.partner_type, 'Driver'), 100),
                 NULL, NULL, NULL, NULL,
@@ -615,7 +615,7 @@ BEGIN
             PERFORM setval('public.core_walkin_id_seq', v_next_id, true);
         END IF;
     EXCEPTION WHEN OTHERS THEN
-        -- Fail-safe decoupling: Guarantees that source table july_existing_walkins operations NEVER fail
+        -- Fail-safe decoupling: Guarantees that source table portal_existing_walkins operations NEVER fail
         RAISE WARNING 'core_walkin sync warning for portal_existing: %', SQLERRM;
     END;
     IF TG_OP = 'DELETE' THEN
@@ -625,9 +625,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS trg_sync_core_walkin_from_portal_existing ON public.july_existing_walkins;
+DROP TRIGGER IF EXISTS trg_sync_core_walkin_from_portal_existing ON public.portal_existing_walkins;
 CREATE TRIGGER trg_sync_core_walkin_from_portal_existing
-AFTER INSERT OR UPDATE OR DELETE ON public.july_existing_walkins
+AFTER INSERT OR UPDATE OR DELETE ON public.portal_existing_walkins
 FOR EACH ROW EXECUTE FUNCTION fn_sync_core_walkin_from_portal_existing();
 
 -- -----------------------------------------------------------------------------

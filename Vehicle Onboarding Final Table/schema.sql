@@ -4,18 +4,18 @@
 -- Description:
 -- Master table unifying two independent vehicle onboarding data sources:
 --   1. public.sheet_vehicle_onboarding (Google Sheet entries synced via Apps Script)
---   2. public.july_vehicle_onboarding (LetzRyd Web Portal Vehicle Onboarding Form)
+--   2. public.portal_vehicle_onboarding (LetzRyd Web Portal Vehicle Onboarding Form)
 --
 -- Conflict & Merging Policy:
 --   - Natural Primary Key: registration_no (Standardized Vehicle Plate Number).
 --   - Portal Form Priority: If the same vehicle registration exists in both systems,
---     the Portal form table (july_vehicle_onboarding) takes top priority.
+--     the Portal form table (portal_vehicle_onboarding) takes top priority.
 --   - Non-conflicting Operational Enrichment: Sheet-specific operational data
 --     (e.g., PDI timestamps, financier, ageing, comments, payment dates) enriches
 --     the record seamlessly.
 --
 -- Architectural Guarantees:
---   - Zero Changes to Upstream Tables: sheet_vehicle_onboarding and july_vehicle_onboarding
+--   - Zero Changes to Upstream Tables: sheet_vehicle_onboarding and portal_vehicle_onboarding
 --     remain 100% untouched.
 --   - Clean IST Timestamps: All timestamps stored as TIMESTAMP WITHOUT TIME ZONE in Asia/Kolkata.
 --   - High-Throughput Sequencing: Native BIGSERIAL sequence generation without lock contention.
@@ -28,9 +28,9 @@ CREATE TABLE IF NOT EXISTS public.core_vehicle_onboarding (
     
     -- Provenance & Source Attribution
     source_system VARCHAR(100) NOT NULL, -- 'GOOGLE_SHEET', 'PORTAL_FORM', 'MERGED_PORTAL_SHEET'
-    source_table VARCHAR(100) NOT NULL,  -- 'sheet_vehicle_onboarding', 'july_vehicle_onboarding'
+    source_table VARCHAR(100) NOT NULL,  -- 'sheet_vehicle_onboarding', 'portal_vehicle_onboarding'
     sheet_vehicle_id BIGINT,             -- Pointer to sheet_vehicle_onboarding.id
-    portal_vehicle_id INTEGER,           -- Pointer to july_vehicle_onboarding.id
+    portal_vehicle_id INTEGER,           -- Pointer to portal_vehicle_onboarding.id
     
     -- Core Vehicle Identifiers (Standardized)
     registration_no VARCHAR(100) NOT NULL,
@@ -272,7 +272,7 @@ $$ LANGUAGE plpgsql IMMUTABLE;
 
 
 -- =============================================================================
--- 3. Trigger Function: Sync from public.july_vehicle_onboarding (Portal Form)
+-- 3. Trigger Function: Sync from public.portal_vehicle_onboarding (Portal Form)
 -- =============================================================================
 CREATE OR REPLACE FUNCTION public.fn_sync_core_vehicle_from_portal()
 RETURNS TRIGGER AS $$
@@ -327,7 +327,7 @@ BEGIN
                     UPDATE public.core_vehicle_onboarding
                     SET 
                         source_system = CASE WHEN v_existing_sheet_id IS NOT NULL THEN 'MERGED_PORTAL_SHEET' ELSE 'PORTAL_FORM' END,
-                        source_table = 'july_vehicle_onboarding',
+                        source_table = 'portal_vehicle_onboarding',
                         portal_vehicle_id = NEW.id,
                         letzryd_unique_no = COALESCE(NULLIF(NEW.letzryd_unique_no, ''), letzryd_unique_no),
                         chassis_no = COALESCE(NULLIF(NEW.chassis_number, ''), chassis_no),
@@ -441,7 +441,7 @@ BEGIN
                         chassis_review_flag, is_migrated, created_by, updated_by,
                         is_deleted, created_at, updated_at
                     ) VALUES (
-                        'PORTAL_FORM', 'july_vehicle_onboarding', NEW.id,
+                        'PORTAL_FORM', 'portal_vehicle_onboarding', NEW.id,
                         v_clean_plate, LEFT(NEW.letzryd_unique_no, 100), LEFT(NEW.chassis_number, 100), LEFT(NEW.engine_number, 100),
                         v_clean_city, LEFT(NEW.model, 100), LEFT(COALESCE(NEW.fuel_type, 'CNG'), 50), LEFT(NEW.color, 100), LEFT(NEW.dealer_name, 255), LEFT(NEW.registered_owner_name, 255),
                         LEFT(NEW.hp_details, 100), LEFT(NEW.mfg_date, 50), LEFT(NEW.received_allocated, 100), LEFT(NEW.delivery_month, 100),
@@ -469,7 +469,7 @@ BEGIN
             END IF;
         END IF;
     EXCEPTION WHEN OTHERS THEN
-        -- Fail-safe decoupling: Guarantees that source table july_vehicle_onboarding operations NEVER fail
+        -- Fail-safe decoupling: Guarantees that source table portal_vehicle_onboarding operations NEVER fail
         RAISE WARNING 'core_vehicle_onboarding sync warning from portal: %', SQLERRM;
     END;
 
@@ -653,9 +653,9 @@ $$ LANGUAGE plpgsql;
 -- 5. Trigger Attachments
 -- =============================================================================
 
-DROP TRIGGER IF EXISTS trg_sync_core_veh_from_portal ON public.july_vehicle_onboarding;
+DROP TRIGGER IF EXISTS trg_sync_core_veh_from_portal ON public.portal_vehicle_onboarding;
 CREATE TRIGGER trg_sync_core_veh_from_portal
-AFTER INSERT OR UPDATE OR DELETE ON public.july_vehicle_onboarding
+AFTER INSERT OR UPDATE OR DELETE ON public.portal_vehicle_onboarding
 FOR EACH ROW EXECUTE FUNCTION public.fn_sync_core_vehicle_from_portal();
 
 DROP TRIGGER IF EXISTS trg_sync_core_veh_from_sheet ON public.sheet_vehicle_onboarding;

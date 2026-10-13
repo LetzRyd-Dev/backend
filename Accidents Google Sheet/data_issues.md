@@ -1,6 +1,6 @@
 # LetzRyd Accidents Pipeline - Data Quality Audit & Issues Specification
 
-This document provides a comprehensive audit of all 10 data quality anomalies (`ACC-01` through `ACC-10`) identified during the analysis of the LetzRyd raw accident vehicle report Google Sheet (`Accident vehicle report` in `WIP- Pan India.xlsx`) and the database portal records (`july_accidents_registry`) in `Master_Issue_Standardization_Catalog.xlsx`, and details the exact standardization logic implemented in `accidents_pipeline_appscript.js` and `schema.sql`.
+This document provides a comprehensive audit of all 10 data quality anomalies (`ACC-01` through `ACC-10`) identified during the analysis of the LetzRyd raw accident vehicle report Google Sheet (`Accident vehicle report` in `WIP- Pan India.xlsx`) and the database portal records (`portal_accidents_registry`) in `Master_Issue_Standardization_Catalog.xlsx`, and details the exact standardization logic implemented in `accidents_pipeline_appscript.js` and `schema.sql`.
 
 ---
 
@@ -80,8 +80,8 @@ This document provides a comprehensive audit of all 10 data quality anomalies (`
 - **Severity**: LOW | **Capability**: CAN BE FIXED BY STANDARDIZATION (CODE)
 
 #### ACC-10: Cross-Source Portal Consolidation & Deduplication
-- **Affected Tables**: `public.sheet_accidents` + `public.july_accidents_registry` $\to$ `public.core_accidents`
-- **Raw Anomaly**: Accident reports logged through both Google Form response sheets and web portal form (`july_accidents_registry`).
+- **Affected Tables**: `public.sheet_accidents` + `public.portal_accidents_registry` $\to$ `public.core_accidents`
+- **Raw Anomaly**: Accident reports logged through both Google Form response sheets and web portal form (`portal_accidents_registry`).
 - **Standardization Rule**:
   Automated PostgreSQL consolidation procedure `refresh_core_accidents()` merges records on `(vehicle_number, accident_date)`, giving precedence to verified portal entries while backfilling historical Google Sheet incidents.
 - **Severity**: HIGH | **Capability**: CAN BE FIXED BY STANDARDIZATION (CODE)

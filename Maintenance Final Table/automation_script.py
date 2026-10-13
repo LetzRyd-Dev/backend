@@ -2,8 +2,8 @@
 LetzRyd - Vehicle Maintenance Final Table Automation & Reconciliation Engine
 ============================================================================
 Synchronizes, backfills, and audits public.core_maintenance as the Single Source
-of Truth combining public.sheet_maintenance, public.july_maintenance_in, and 
-public.july_maintenance_out with Portal Priority and zero sequence ID gaps.
+of Truth combining public.sheet_maintenance, public.portal_maintenance_in, and 
+public.portal_maintenance_out with Portal Priority and zero sequence ID gaps.
 
 Usage:
     python automation_script.py --audit
@@ -220,10 +220,10 @@ def audit_health():
     cur.execute("SELECT count(*) as cnt FROM public.sheet_maintenance WHERE is_deleted = FALSE;")
     sheet_count = cur.fetchone()['cnt']
 
-    cur.execute("SELECT count(*) as cnt FROM public.july_maintenance_in;")
+    cur.execute("SELECT count(*) as cnt FROM public.portal_maintenance_in;")
     portal_in_count = cur.fetchone()['cnt']
 
-    cur.execute("SELECT count(*) as cnt FROM public.july_maintenance_out;")
+    cur.execute("SELECT count(*) as cnt FROM public.portal_maintenance_out;")
     portal_out_count = cur.fetchone()['cnt']
 
     # Master table counts
@@ -256,8 +256,8 @@ def audit_health():
 
     print("\n[+] 1. Upstream & Master Table Reconciliation:")
     print(f"    - Upstream: public.sheet_maintenance         : {sheet_count:,} rows")
-    print(f"    - Upstream: public.july_maintenance_in      : {portal_in_count:,} rows")
-    print(f"    - Upstream: public.july_maintenance_out     : {portal_out_count:,} rows")
+    print(f"    - Upstream: public.portal_maintenance_in      : {portal_in_count:,} rows")
+    print(f"    - Upstream: public.portal_maintenance_out     : {portal_out_count:,} rows")
     print(f"    - Master  : public.core_maintenance (Total) : {total:,} rows (Active: {active:,}, Soft-Deleted: {deleted:,})")
     print(f"    - Unique Vehicles Tracked                   : {vehicles:,}")
     print(f"    - Primary Key Range                         : ID {min_id} to ID {max_id}")

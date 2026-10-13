@@ -10,7 +10,7 @@ This document details the architectural data issues, real-world anomalies, root 
 In real operations, a single driver frequently has multiple genuine adjustments on the exact same date for the exact same amount (e.g. Driver `6200183742` on `2026-07-15` had ₹500 for "Car wash" and ₹500 for "AC issue"). Earlier code attempted to deduplicate by matching `(partner_phone, vehicle_number, adjustment_date, amount)`, which erroneously merged the second entry into the first, deleting 414 financial adjustments.
 
 ### Resolution
-- Enforced 1-to-1 canonical mapping from `sheet_adjustments` (`ADJ-SHT-<id>`) and `july_partner_adjustment` (`ADJ-PORTAL-<id>`).
+- Enforced 1-to-1 canonical mapping from `sheet_adjustments` (`ADJ-SHT-<id>`) and `portal_partner_adjustment` (`ADJ-PORTAL-<id>`).
 - Every distinct form submission is preserved as its own line item in `core_adjustments`.
 - Total rows consolidated: **15,835 rows** (15,820 from Sheet + 15 from Portal), eliminating all data loss.
 

@@ -8,7 +8,7 @@ The **Master Vehicle Allocation Pipeline** unifies vehicle allocation and driver
 1. **Google Sheets Operational Pipeline (`public.sheet_vehicle_allocations`)**:
    * Form submissions from fleet operations executives across Bangalore, Hyderabad, and Mumbai hubs.
    * Total volume: 7,229 records (39 columns).
-2. **Web Portal Digital Allocation Form (`public.july_allocation_form`)**:
+2. **Web Portal Digital Allocation Form (`public.portal_allocation_form`)**:
    * Digital vehicle handover workflow containing comprehensive inspection checklists, 4-sided photos, security cheques, FASTag balances, and multi-tier operational approvals.
    * Total volume: 347 records (76 columns), including 119 drop-off records (isolated) and test/dummy submissions.
 
@@ -25,7 +25,7 @@ The **Master Vehicle Allocation Pipeline** unifies vehicle allocation and driver
                           | Google Apps Script JDBC Ingestion                | FastAPI Web Portal Backend
                           v                                                  v
 +----------------------------------------------------+----------------------------------------------+
-| public.sheet_vehicle_allocations                   | public.july_allocation_form                  |
+| public.sheet_vehicle_allocations                   | public.portal_allocation_form                  |
 | (7,229 rows - 39 columns)                          | (347 rows - 76 columns)                      |
 +----------------------------------------------------+----------------------------------------------+
                           |                                                  |
@@ -79,10 +79,10 @@ The **Master Vehicle Allocation Pipeline** unifies vehicle allocation and driver
    * Normalizes `operator_driver_id` / `driver_id` (correcting historical `'OP'` typos to canonical `'IP'`).
    * Enforces regex pattern `^LETZ(BLR|HYD|MUM|PUN)(IP)?[0-9]{10}$`.
    * Enforces vehicle registration plate length between 8 and 12 alphanumeric characters and non-null `allocation_date`.
-   * Automatically isolates and rejects 51 invalid test submissions from `july_allocation_form`.
+   * Automatically isolates and rejects 51 invalid test submissions from `portal_allocation_form`.
 
 4. **Permanent Archival & Soft Deletes**:
-   * When a row is deleted in `sheet_vehicle_allocations` or `july_allocation_form`, the core row is preserved.
+   * When a row is deleted in `sheet_vehicle_allocations` or `portal_allocation_form`, the core row is preserved.
    * Trigger sets `is_deleted = TRUE`, `deleted_at = (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')`, and `updated_at = CURRENT_TIMESTAMP`.
    * Ensures zero historical data loss for Hisaab audit trails and vehicle tenure tracking.
 
@@ -97,9 +97,9 @@ The **Master Vehicle Allocation Pipeline** unifies vehicle allocation and driver
 
 ## 3. Verified 19 Column Mappings
 
-The table consolidates all attributes from `sheet_vehicle_allocations` (39 columns) and `july_allocation_form` (76 columns) using 19 verified semantic mappings:
+The table consolidates all attributes from `sheet_vehicle_allocations` (39 columns) and `portal_allocation_form` (76 columns) using 19 verified semantic mappings:
 
-| # | Google Sheet Column (`sheet_vehicle_allocations`) | Web Portal Column (`july_allocation_form`) | Core Unified Column (`core_vehicle_allocation`) | Data Type | Notes |
+| # | Google Sheet Column (`sheet_vehicle_allocations`) | Web Portal Column (`portal_allocation_form`) | Core Unified Column (`core_vehicle_allocation`) | Data Type | Notes |
 |---|---|---|---|---|---|
 | 1 | `city` | `city_name` | `city` | `VARCHAR(100)` | Standardized to 'Bengaluru', 'Hyderabad', 'Mumbai', 'Pune' |
 | 2 | `operator_driver_id` | `driver_id` | `partner_id` | `VARCHAR(50)` | Corrected 'OP' -> 'IP', validated via regex |
@@ -132,7 +132,7 @@ CREATE TABLE public.core_vehicle_allocation (
     -- Provenance & Lineage
     source_origin VARCHAR(50) NOT NULL, -- 'GOOGLE_SHEET', 'PORTAL_FORM', 'MERGED'
     sheet_record_id BIGINT,             -- Pointer to sheet_vehicle_allocations.id
-    portal_record_id INTEGER,           -- Pointer to july_allocation_form.id
+    portal_record_id INTEGER,           -- Pointer to portal_allocation_form.id
 
     -- Core Allocation Identifiers
     allocation_date DATE NOT NULL,
@@ -265,9 +265,9 @@ CREATE TRIGGER trg_sync_core_allocation_from_sheet
 AFTER INSERT OR UPDATE OR DELETE ON public.sheet_vehicle_allocations
 FOR EACH ROW EXECUTE FUNCTION public.sync_core_allocation_from_sheet();
 
--- Trigger on july_allocation_form
+-- Trigger on portal_allocation_form
 CREATE TRIGGER trg_sync_core_allocation_from_portal
-AFTER INSERT OR UPDATE OR DELETE ON public.july_allocation_form
+AFTER INSERT OR UPDATE OR DELETE ON public.portal_allocation_form
 FOR EACH ROW EXECUTE FUNCTION public.sync_core_allocation_from_portal();
 ```
 
@@ -299,7 +299,7 @@ python automation_script.py --verify-triggers
 
 1. Upstream Source Volume:
    - Google Sheets (sheet_vehicle_allocations) : 7,229 rows
-   - Web Portal    (july_allocation_form)       : 347 rows (Valid: 202, Test/Rejected: 145)
+   - Web Portal    (portal_allocation_form)       : 347 rows (Valid: 202, Test/Rejected: 145)
 
 2. Master Table Volume (core_vehicle_allocation):
    - Total Records     : 7,251

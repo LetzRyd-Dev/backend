@@ -3,7 +3,7 @@
 -- =============================================================================
 -- Master table unifying vehicle allocation and handover records from:
 --   1. public.sheet_vehicle_allocations (Google Sheets operational form)
---   2. public.july_allocation_form (Web Portal digital vehicle allocation workflow)
+--   2. public.portal_allocation_form (Web Portal digital vehicle allocation workflow)
 --
 -- Architectural Guarantees:
 --   - Dual-Source Automatic Merging:
@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS public.core_vehicle_allocation (
     -- Provenance & Source References
     source_origin VARCHAR(50) NOT NULL, -- 'GOOGLE_SHEET', 'PORTAL_FORM', 'MERGED'
     sheet_record_id BIGINT,             -- Pointer to sheet_vehicle_allocations.id
-    portal_record_id INTEGER,           -- Pointer to july_allocation_form.id
+    portal_record_id INTEGER,           -- Pointer to portal_allocation_form.id
 
     -- Core Allocation Identifiers (Cleaned / Canonical)
     allocation_date DATE NOT NULL,
@@ -367,7 +367,7 @@ FOR EACH ROW EXECUTE FUNCTION public.sync_core_allocation_from_sheet();
 
 
 -- -----------------------------------------------------------------------------
--- 3. Trigger Function: Sync from july_allocation_form
+-- 3. Trigger Function: Sync from portal_allocation_form
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.sync_core_allocation_from_portal()
 RETURNS TRIGGER AS $$
@@ -601,8 +601,8 @@ BEGIN
     END IF;
 
     EXCEPTION WHEN OTHERS THEN
-        -- Fail-safe Exception Shield: Guarantees that source table july_allocation_form operations NEVER fail
-        RAISE WARNING 'core_vehicle_allocation sync warning for july_allocation_form: %', SQLERRM;
+        -- Fail-safe Exception Shield: Guarantees that source table portal_allocation_form operations NEVER fail
+        RAISE WARNING 'core_vehicle_allocation sync warning for portal_allocation_form: %', SQLERRM;
     END;
 
     IF TG_OP = 'DELETE' THEN
@@ -612,9 +612,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS trg_sync_core_allocation_from_portal ON public.july_allocation_form;
+DROP TRIGGER IF EXISTS trg_sync_core_allocation_from_portal ON public.portal_allocation_form;
 CREATE TRIGGER trg_sync_core_allocation_from_portal
-AFTER INSERT OR UPDATE OR DELETE ON public.july_allocation_form
+AFTER INSERT OR UPDATE OR DELETE ON public.portal_allocation_form
 FOR EACH ROW EXECUTE FUNCTION public.sync_core_allocation_from_portal();
 
 
@@ -759,7 +759,7 @@ BEGIN
 
     GET DIAGNOSTICS v_sheet_count = ROW_COUNT;
 
-    -- Step 2: Overlay valid records from july_allocation_form matching core events (MERGE)
+    -- Step 2: Overlay valid records from portal_allocation_form matching core events (MERGE)
     WITH portal_ranked AS (
         SELECT p.*,
                REGEXP_REPLACE(UPPER(COALESCE(p.vehicle_number, '')), '[^A-Z0-9]', '', 'g') AS clean_vnum,
@@ -792,7 +792,7 @@ BEGIN
                                 END
                    ORDER BY p.created_at DESC NULLS LAST, p.id DESC
                ) as rn
-        FROM public.july_allocation_form p
+        FROM public.portal_allocation_form p
         WHERE p.allocation_date IS NOT NULL
           AND LENGTH(REGEXP_REPLACE(UPPER(COALESCE(p.vehicle_number, '')), '[^A-Z0-9]', '', 'g')) BETWEEN 8 AND 12
           AND CASE 
@@ -924,7 +924,7 @@ BEGIN
                                 END
                    ORDER BY p.created_at DESC NULLS LAST, p.id DESC
                ) as rn
-        FROM public.july_allocation_form p
+        FROM public.portal_allocation_form p
         WHERE p.allocation_date IS NOT NULL
           AND LENGTH(REGEXP_REPLACE(UPPER(COALESCE(p.vehicle_number, '')), '[^A-Z0-9]', '', 'g')) BETWEEN 8 AND 12
           AND CASE 

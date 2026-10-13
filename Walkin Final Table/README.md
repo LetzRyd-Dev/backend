@@ -13,8 +13,8 @@ This document serves as both:
 
 ### Integrated Source Systems
 1. **`public.sheet_walkins`**: Google Sheets form submissions captured at field hubs and synchronized in real time via Google Apps Script JDBC.
-2. **`public.july_new_walkins`**: LetzRyd Web Portal candidate onboarding form (capturing Aadhaar, DL, KYC, referral channel, and photos).
-3. **`public.july_existing_walkins`**: LetzRyd Web Portal returning partner visit logs (capturing operational visits for hisaab, maintenance, swaps, and complaints).
+2. **`public.portal_new_walkins`**: LetzRyd Web Portal candidate onboarding form (capturing Aadhaar, DL, KYC, referral channel, and photos).
+3. **`public.portal_existing_walkins`**: LetzRyd Web Portal returning partner visit logs (capturing operational visits for hisaab, maintenance, swaps, and complaints).
 
 ---
 
@@ -31,7 +31,7 @@ This document serves as both:
                   | Google Apps Script JDBC           | FastAPI Backend               | FastAPI Backend
                   v                                   v                               v
 +------------------------------------+----------------------------------+---------------------------+
-| public.sheet_walkins               | public.july_new_walkins          | public.july_existing_walk |
+| public.sheet_walkins               | public.portal_new_walkins          | public.portal_existing_walk |
 +------------------------------------+----------------------------------+---------------------------+
                   |                                   |                               |
         AFTER INSERT/UPDATE/DELETE          AFTER INSERT/UPDATE/DELETE      AFTER INSERT/UPDATE/DELETE
@@ -73,7 +73,7 @@ This document serves as both:
 When designing an enterprise-grade Single Source of Truth across multiple disparate systems, this architecture enforces six non-negotiable guarantees:
 
 1. **Zero Modifications to Source Systems**:
-   - The source tables (`sheet_walkins`, `july_new_walkins`, `july_existing_walkins`) remain 100% untouched.
+   - The source tables (`sheet_walkins`, `portal_new_walkins`, `portal_existing_walkins`) remain 100% untouched.
    - Zero modifications were required in Google Apps Script or the FastAPI portal code. Source systems remain decoupled.
 2. **Instant Live Synchronization (<10ms)**:
    - Native PostgreSQL database triggers execute immediately `AFTER INSERT OR UPDATE OR DELETE`.
@@ -228,21 +228,21 @@ Whenever you build triggers and backfill logic, categorize every column into one
    - Store exactly what the user typed without altering spelling.
    - **Crucial**: Always wrap with `LEFT(val, max_column_length)` to protect against SQL character overflow exceptions (`SQLSTATE 22001`).
 3. **Tier 3: Zero Source Table Mutability**:
-   - Source systems (`sheet_walkins`, `july_new_walkins`, Google Sheets) must remain strictly read-only to the pipeline.
+   - Source systems (`sheet_walkins`, `portal_new_walkins`, Google Sheets) must remain strictly read-only to the pipeline.
    - Never run DDL modifications, column drops, or updates against source tables.
 
 ---
 
 ## 5. Complete 42-Column Master Field Dictionary (`public.core_walkin`)
 
-| # | Column Name | SQL Type | Nullable | Source in `sheet_walkins` | Source in `july_new_walkins` | Source in `july_existing_walkins` | Transformation / Business Logic |
+| # | Column Name | SQL Type | Nullable | Source in `sheet_walkins` | Source in `portal_new_walkins` | Source in `portal_existing_walkins` | Transformation / Business Logic |
 |:---|:---|:---|:---|:---|:---|:---|:---|
 | 1 | `id` | `BIGINT` | NO | Generated | Generated | Generated | Gapless sequential integer (`1..N`) via `pg_advisory_xact_lock`. |
 | 2 | `source_system` | `VARCHAR(50)` | NO | `'GOOGLE_SHEET'` | `'PORTAL_NEW'` | `'PORTAL_EXISTING'` | Originating ingestion pipeline. |
-| 3 | `source_table` | `VARCHAR(50)` | NO | `'sheet_walkins'` | `'july_new_walkins'` | `'july_existing_walkins'` | Source table name. |
+| 3 | `source_table` | `VARCHAR(50)` | NO | `'sheet_walkins'` | `'portal_new_walkins'` | `'portal_existing_walkins'` | Source table name. |
 | 4 | `sheet_walkin_id` | `BIGINT` | YES | `id` | `NULL` | `NULL` | Foreign reference to `sheet_walkins.id`. |
-| 5 | `portal_new_walkin_id` | `INTEGER` | YES | `NULL` | `id` | `NULL` | Foreign reference to `july_new_walkins.id`. |
-| 6 | `portal_existing_walkin_id` | `INTEGER` | YES | `NULL` | `NULL` | `id` | Foreign reference to `july_existing_walkins.id`. |
+| 5 | `portal_new_walkin_id` | `INTEGER` | YES | `NULL` | `id` | `NULL` | Foreign reference to `portal_new_walkins.id`. |
+| 6 | `portal_existing_walkin_id` | `INTEGER` | YES | `NULL` | `NULL` | `id` | Foreign reference to `portal_existing_walkins.id`. |
 | 7 | `walkin_type` | `VARCHAR(50)` | NO | Reason-derived | `'NEW_CANDIDATE'` | `'EXISTING_PARTNER'` | Distinguishes candidate onboarding from partner visits. |
 | 8 | `walkin_date` | `DATE` | NO | Derived from timestamp | `event_date` | `event_date` | Calendar date (`YYYY-MM-DD`) in IST. |
 | 9 | `walkin_time` | `VARCHAR(20)` | YES | `HH24:MI` from timestamp | `enquiry_time` | `enquiry_time` | Time of day string. |
@@ -310,8 +310,8 @@ python automation_script.py --audit
 ```
 === Core Walkin Health & Reconciliation Audit ===
 Source: sheet_walkins         : 889 rows
-Source: july_new_walkins      : 82 rows
-Source: july_existing_walkins : 8 rows
+Source: portal_new_walkins      : 82 rows
+Source: portal_existing_walkins : 8 rows
 Target: core_walkin (Total)   : 979 rows (Active: 979, Soft-Deleted: 0)
 Primary Key Range             : ID 1 to ID 979
 Gapless ID Integrity          : PASSED (0 missing IDs)

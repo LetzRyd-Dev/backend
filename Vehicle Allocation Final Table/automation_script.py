@@ -4,7 +4,7 @@ LetzRyd - Vehicle Allocation Final Table Automation & Health Engine
 Synchronizes, audits, and validates public.core_vehicle_allocation as the
 Single Source of Truth combining:
   1. public.sheet_vehicle_allocations (Google Sheet operational entries)
-  2. public.july_allocation_form (Web Portal vehicle allocations and handovers)
+  2. public.portal_allocation_form (Web Portal vehicle allocations and handovers)
 
 Architectural Guarantees:
   - Dual-Source Automatic Merging on (allocation_date, vehicle_number, partner_id)
@@ -84,13 +84,13 @@ def audit_health():
     cur.execute("SELECT count(*) as count FROM public.sheet_vehicle_allocations;")
     sheet_total = cur.fetchone()["count"]
 
-    cur.execute("SELECT count(*) as count FROM public.july_allocation_form;")
+    cur.execute("SELECT count(*) as count FROM public.portal_allocation_form;")
     portal_total = cur.fetchone()["count"]
 
     # Portal valid vs rejected (excluding drop-offs and invalid formats)
     cur.execute("""
         SELECT count(*) as count 
-        FROM public.july_allocation_form
+        FROM public.portal_allocation_form
         WHERE allocation_date IS NOT NULL
           AND LENGTH(REGEXP_REPLACE(UPPER(COALESCE(vehicle_number, '')), '[^A-Z0-9]', '', 'g')) BETWEEN 8 AND 12
           AND REGEXP_REPLACE(UPPER(TRIM(COALESCE(driver_id, ''))), '^(LETZ(?:BLR|HYD|MUM|PUN))OP', '\\1IP') ~ '^LETZ(BLR|HYD|MUM|PUN)(IP)?[0-9]{10}$'
@@ -111,7 +111,7 @@ def audit_health():
 
     print("1. Upstream Source Volume:")
     print(f"   - Google Sheets (sheet_vehicle_allocations) : {sheet_total} rows")
-    print(f"   - Web Portal    (july_allocation_form)       : {portal_total} rows (Valid: {portal_valid}, Test/Rejected: {portal_rejected})")
+    print(f"   - Web Portal    (portal_allocation_form)       : {portal_total} rows (Valid: {portal_valid}, Test/Rejected: {portal_rejected})")
     print(f"\n2. Master Table Volume (core_vehicle_allocation):")
     print(f"   - Total Records     : {core_total}")
     print(f"   - Active Records    : {core_active}")
@@ -220,7 +220,7 @@ def verify_triggers():
 
     # Pre-clean
     cur.execute("DELETE FROM public.sheet_vehicle_allocations WHERE vehicle_number = %s;", (test_veh,))
-    cur.execute("DELETE FROM public.july_allocation_form WHERE vehicle_number = %s;", (test_veh,))
+    cur.execute("DELETE FROM public.portal_allocation_form WHERE vehicle_number = %s;", (test_veh,))
     cur.execute("DELETE FROM public.core_vehicle_allocation WHERE vehicle_number = %s;", (test_veh,))
 
     # Step 1: Sheet INSERT
@@ -259,9 +259,9 @@ def verify_triggers():
     print(f"   [PASS] Updated in core (jack={updated_core['jack']}, reason={updated_core['reason_to_visit']})")
 
     # Step 3: Portal Overlay (MERGE)
-    print("\n3. Testing Portal Overlay / Merge (INSERT on public.july_allocation_form)...")
+    print("\n3. Testing Portal Overlay / Merge (INSERT on public.portal_allocation_form)...")
     cur.execute("""
-        INSERT INTO public.july_allocation_form (
+        INSERT INTO public.portal_allocation_form (
             allocation_date, vehicle_number, driver_id, driver_phone,
             driver_name, city_name, allocation_type, insp_jack, insp_remarks,
             status, created_at, updated_at
@@ -281,10 +281,10 @@ def verify_triggers():
     print(f"   [PASS] Successfully merged (origin={merged_core['source_origin']}, sheet_id={merged_core['sheet_record_id']}, portal_id={merged_core['portal_record_id']})")
 
     # Step 4: Drop-Off Rejection Verification
-    print("\n4. Testing Drop-Off Rejection (INSERT Drop-Off on public.july_allocation_form)...")
+    print("\n4. Testing Drop-Off Rejection (INSERT Drop-Off on public.portal_allocation_form)...")
     test_dropoff_veh = "TESTDROPOFF99"
     cur.execute("""
-        INSERT INTO public.july_allocation_form (
+        INSERT INTO public.portal_allocation_form (
             allocation_date, vehicle_number, driver_id, driver_phone,
             driver_name, city_name, allocation_type, status, created_at, updated_at
         ) VALUES (
@@ -296,7 +296,7 @@ def verify_triggers():
     cur.execute("SELECT count(*) as count FROM public.core_vehicle_allocation WHERE vehicle_number = %s;", (test_dropoff_veh,))
     dropoff_in_core = cur.fetchone()["count"]
     assert dropoff_in_core == 0, f"Failed: Drop-Off entered core_vehicle_allocation! Found {dropoff_in_core} rows"
-    cur.execute("DELETE FROM public.july_allocation_form WHERE vehicle_number = %s;", (test_dropoff_veh,))
+    cur.execute("DELETE FROM public.portal_allocation_form WHERE vehicle_number = %s;", (test_dropoff_veh,))
     print(f"   [PASS] Drop-off successfully blocked from entering core (count in core = {dropoff_in_core})")
 
     # Step 5: Soft-Delete
@@ -311,7 +311,7 @@ def verify_triggers():
     # Step 6: Cleanup & Sequence Realignment (Non-Destructive)
     print("\n6. Cleaning Up Test Artifacts & Realigning Sequence...")
     cur.execute("DELETE FROM public.sheet_vehicle_allocations WHERE vehicle_number = %s;", (test_veh,))
-    cur.execute("DELETE FROM public.july_allocation_form WHERE vehicle_number = %s;", (test_veh,))
+    cur.execute("DELETE FROM public.portal_allocation_form WHERE vehicle_number = %s;", (test_veh,))
     cur.execute("DELETE FROM public.core_vehicle_allocation WHERE vehicle_number = %s;", (test_veh,))
     cur.execute("SELECT setval('public.core_vehicle_allocation_id_seq', COALESCE((SELECT MAX(id) FROM public.core_vehicle_allocation), 1), true);")
 

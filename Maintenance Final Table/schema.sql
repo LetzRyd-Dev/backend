@@ -3,7 +3,7 @@
 -- =============================================================================
 -- Master table consolidating workshop downtime records across:
 --   1. public.sheet_maintenance (Google Sheets operational status extract)
---   2. public.july_maintenance_in + public.july_maintenance_out (Web Portal)
+--   2. public.portal_maintenance_in + public.portal_maintenance_out (Web Portal)
 --
 -- Architectural Guarantees:
 --   - Dual-Source Unification with Portal Priority:
@@ -11,8 +11,8 @@
 --         digital repair workflows into a canonical maintenance ledger.
 --       * When a record exists in both Portal and Sheet, Portal data takes precedence.
 --   - Inward & Outward Interval Pairing:
---       * Portal inward entries (july_maintenance_in) and outward releases
---         (july_maintenance_out) are merged into unified temporal intervals.
+--       * Portal inward entries (portal_maintenance_in) and outward releases
+--         (portal_maintenance_out) are merged into unified temporal intervals.
 --   - Non-Negative Duration Enforcement:
 --       * Start and end dates are strictly validated ensuring end_date >= start_date.
 --   - Soft Delete Protection:
@@ -288,7 +288,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_idx_core_maint_sheet_id ON public.core_main
 
 
 -- -----------------------------------------------------------------------------
--- 3. Trigger 1: Real-Time Sync from public.july_maintenance_in (Web Portal Inward)
+-- 3. Trigger 1: Real-Time Sync from public.portal_maintenance_in (Web Portal Inward)
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.fn_sync_core_maintenance_from_portal_in()
 RETURNS TRIGGER AS $$
@@ -339,8 +339,8 @@ BEGIN
         v_attrs := jsonb_set(v_attrs, '{is_test}', 'true'::jsonb);
     END IF;
 
-    -- Check for paired outward release in july_maintenance_out
-    SELECT * INTO v_out FROM public.july_maintenance_out WHERE inward_id = NEW.id ORDER BY id DESC LIMIT 1;
+    -- Check for paired outward release in portal_maintenance_out
+    SELECT * INTO v_out FROM public.portal_maintenance_out WHERE inward_id = NEW.id ORDER BY id DESC LIMIT 1;
     IF FOUND THEN
         v_out_dt := public.fn_parse_maintenance_timestamp(v_out.vehicle_out_date_time);
         v_end_date := COALESCE(public.fn_parse_maintenance_date(v_out.rfd_date), v_out_dt::DATE);
@@ -519,15 +519,15 @@ EXCEPTION WHEN OTHERS THEN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS trg_sync_core_maintenance_from_portal_in ON public.july_maintenance_in;
-DROP TRIGGER IF EXISTS trg_sync_core_maintenance_portal_in ON public.july_maintenance_in;
+DROP TRIGGER IF EXISTS trg_sync_core_maintenance_from_portal_in ON public.portal_maintenance_in;
+DROP TRIGGER IF EXISTS trg_sync_core_maintenance_portal_in ON public.portal_maintenance_in;
 CREATE TRIGGER trg_sync_core_maintenance_from_portal_in
-AFTER INSERT OR UPDATE OR DELETE ON public.july_maintenance_in
+AFTER INSERT OR UPDATE OR DELETE ON public.portal_maintenance_in
 FOR EACH ROW EXECUTE FUNCTION public.fn_sync_core_maintenance_from_portal_in();
 
 
 -- -----------------------------------------------------------------------------
--- 4. Trigger 2: Real-Time Sync from public.july_maintenance_out (Web Portal Outward)
+-- 4. Trigger 2: Real-Time Sync from public.portal_maintenance_out (Web Portal Outward)
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.fn_sync_core_maintenance_from_portal_out()
 RETURNS TRIGGER AS $$
@@ -636,11 +636,11 @@ EXCEPTION WHEN OTHERS THEN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS trg_sync_core_maintenance_from_portal_out ON public.july_maintenance_out;
-DROP TRIGGER IF EXISTS trg_sync_core_maintenance_portal_out ON public.july_maintenance_out;
+DROP TRIGGER IF EXISTS trg_sync_core_maintenance_from_portal_out ON public.portal_maintenance_out;
+DROP TRIGGER IF EXISTS trg_sync_core_maintenance_portal_out ON public.portal_maintenance_out;
 DROP FUNCTION IF EXISTS public.sync_core_maintenance_from_portal() CASCADE;
 CREATE TRIGGER trg_sync_core_maintenance_from_portal_out
-AFTER INSERT OR UPDATE OR DELETE ON public.july_maintenance_out
+AFTER INSERT OR UPDATE OR DELETE ON public.portal_maintenance_out
 FOR EACH ROW EXECUTE FUNCTION public.fn_sync_core_maintenance_from_portal_out();
 
 
@@ -819,7 +819,7 @@ BEGIN
     -- STEP 1: Ingest Web Portal Inward & Outward Records (Portal Priority)
     -- =========================================================================
     FOR v_in IN 
-        SELECT * FROM public.july_maintenance_in ORDER BY id ASC
+        SELECT * FROM public.portal_maintenance_in ORDER BY id ASC
     LOOP
         v_curr_id := v_curr_id + 1;
         v_clean_veh := public.fn_clean_maintenance_vehicle(v_in.vehicle_number);
@@ -838,7 +838,7 @@ BEGIN
         END IF;
 
         -- Find paired outward release
-        SELECT * INTO v_out FROM public.july_maintenance_out WHERE inward_id = v_in.id ORDER BY id DESC LIMIT 1;
+        SELECT * INTO v_out FROM public.portal_maintenance_out WHERE inward_id = v_in.id ORDER BY id DESC LIMIT 1;
         IF FOUND THEN
             v_out_dt := public.fn_parse_maintenance_timestamp(v_out.vehicle_out_date_time);
             v_end_date := COALESCE(public.fn_parse_maintenance_date(v_out.rfd_date), v_out_dt::DATE);

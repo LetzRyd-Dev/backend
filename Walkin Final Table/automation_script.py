@@ -2,7 +2,7 @@
 LetzRyd - Walk-in Final Table Automation & Reconciliation Engine
 ================================================================
 Synchronizes and audits public.core_walkin as the Single Source of Truth
-combining public.sheet_walkins, public.july_new_walkins, and public.july_existing_walkins.
+combining public.sheet_walkins, public.portal_new_walkins, and public.portal_existing_walkins.
 
 Usage:
     python automation_script.py --audit
@@ -75,10 +75,10 @@ def audit_health():
     cur.execute("SELECT count(*) FROM public.sheet_walkins;")
     sheet_count = cur.fetchone()['count']
 
-    cur.execute("SELECT count(*) FROM public.july_new_walkins;")
+    cur.execute("SELECT count(*) FROM public.portal_new_walkins;")
     portal_new_count = cur.fetchone()['count']
 
-    cur.execute("SELECT count(*) FROM public.july_existing_walkins;")
+    cur.execute("SELECT count(*) FROM public.portal_existing_walkins;")
     portal_ex_count = cur.fetchone()['count']
 
     cur.execute("SELECT count(*) FROM public.core_walkin;")
@@ -102,8 +102,8 @@ def audit_health():
     gaps = cur.fetchall()
 
     print(f"Source: sheet_walkins         : {sheet_count} rows")
-    print(f"Source: july_new_walkins      : {portal_new_count} rows")
-    print(f"Source: july_existing_walkins : {portal_ex_count} rows")
+    print(f"Source: portal_new_walkins      : {portal_new_count} rows")
+    print(f"Source: portal_existing_walkins : {portal_ex_count} rows")
     print(f"Target: core_walkin (Total)   : {core_count} rows (Active: {active_count}, Soft-Deleted: {deleted_count})")
     print(f"Primary Key Range             : ID {id_range['min_id']} to ID {id_range['max_id']}")
     print(f"Gapless ID Integrity          : {'PASSED (0 missing IDs)' if len(gaps) == 0 else f'FAILED ({len(gaps)} missing IDs: {[g['i'] for g in gaps[:5]]})'}")
@@ -141,8 +141,8 @@ def backfill():
                 pu.username,
                 pu.email,
                 COALESCE(NULLIF(TRIM(CONCAT(e.first_name, ' ', e.last_name)), ''), pu.username, 'Executive') AS exec_name
-            FROM july_portal_users pu
-            LEFT JOIN july_employees e ON e.employee_id = pu.employee_id;
+            FROM portal_portal_users pu
+            LEFT JOIN portal_employees e ON e.employee_id = pu.employee_id;
         """)
         exec_map = {r['portal_user_id']: {'name': r['exec_name'], 'email': r['email'] or r['username']} for r in cur.fetchall()}
 
@@ -191,7 +191,7 @@ def backfill():
             ))
 
         # 2. Portal New
-        cur.execute("SELECT * FROM public.july_new_walkins ORDER BY id ASC;")
+        cur.execute("SELECT * FROM public.portal_new_walkins ORDER BY id ASC;")
         for r in cur.fetchall():
             full = (r['person_name'] or f"{r['first_name'] or ''} {r['last_name'] or ''}").strip()
             f_name = r['first_name'] or (full.split(' ')[0].title() if full else 'UNKNOWN')
@@ -218,7 +218,7 @@ def backfill():
                     attending_executive, attending_executive_id, submitter_email, remarks, visit_notes,
                     sheet_row_number, is_deleted, deleted_at, created_at, updated_at
                 ) VALUES (
-                    'PORTAL_NEW', 'july_new_walkins', NULL, %s, NULL,
+                    'PORTAL_NEW', 'portal_new_walkins', NULL, %s, NULL,
                     'NEW_CANDIDATE', %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s,
                     %s, %s, %s, %s,
@@ -238,7 +238,7 @@ def backfill():
             ))
 
         # 3. Portal Existing
-        cur.execute("SELECT * FROM public.july_existing_walkins ORDER BY id ASC;")
+        cur.execute("SELECT * FROM public.portal_existing_walkins ORDER BY id ASC;")
         for r in cur.fetchall():
             full = (r['person_name'] or f"{r['first_name'] or ''} {r['last_name'] or ''}").strip()
             f_name = r['first_name'] or (full.split(' ')[0].title() if full else 'UNKNOWN')
@@ -263,7 +263,7 @@ def backfill():
                     attending_executive, attending_executive_id, submitter_email, remarks, visit_notes,
                     sheet_row_number, is_deleted, deleted_at, created_at, updated_at
                 ) VALUES (
-                    'PORTAL_EXISTING', 'july_existing_walkins', NULL, NULL, %s,
+                    'PORTAL_EXISTING', 'portal_existing_walkins', NULL, NULL, %s,
                     'EXISTING_PARTNER', %s, %s, %s, %s, NULL,
                     %s, %s, %s, %s, %s,
                     NULL, NULL, NULL, NULL,

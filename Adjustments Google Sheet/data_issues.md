@@ -1,6 +1,6 @@
 # LetzRyd Adjustments Pipeline - Data Quality Audit & Issues Specification
 
-This document provides a comprehensive audit of all 11 data quality anomalies (`ADJ-01` through `ADJ-11`) identified during the analysis of the LetzRyd raw adjustments Google Sheet (`Adjustment-Form` in `Pan India Master Sheet.xlsx`) and the database portal records (`july_partner_adjustment`) in `Master_Issue_Standardization_Catalog.xlsx`, and details the exact standardization logic implemented in `adjustments_pipeline_appscript.js` and `schema.sql`.
+This document provides a comprehensive audit of all 11 data quality anomalies (`ADJ-01` through `ADJ-11`) identified during the analysis of the LetzRyd raw adjustments Google Sheet (`Adjustment-Form` in `Pan India Master Sheet.xlsx`) and the database portal records (`portal_partner_adjustment`) in `Master_Issue_Standardization_Catalog.xlsx`, and details the exact standardization logic implemented in `adjustments_pipeline_appscript.js` and `schema.sql`.
 
 ---
 
@@ -87,7 +87,7 @@ This document provides a comprehensive audit of all 11 data quality anomalies (`
 - **Severity**: LOW | **Capability**: CAN BE FIXED BY STANDARDIZATION (CODE)
 
 #### ADJ-11: Cross-Source Portal Consolidation & JSON Approval Chains
-- **Affected Tables**: `public.sheet_adjustments` + `public.july_partner_adjustment` $\to$ `public.core_adjustments`
+- **Affected Tables**: `public.sheet_adjustments` + `public.portal_partner_adjustment` $\to$ `public.core_adjustments`
 - **Raw Anomaly**: Adjustments logged across Google Sheets and web portal forms with JSON approval chains and contested line items.
 - **Standardization Rule**:
   Consolidation procedure `refresh_core_adjustments()` merges both sources into `public.core_adjustments`, preserving portal JSON approval metadata and hisaab line items.

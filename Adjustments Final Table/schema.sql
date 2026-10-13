@@ -6,7 +6,7 @@
 -- Target Table   : public.core_adjustments (Single Source of Truth)
 -- Upstream Sources:
 --   1. public.sheet_adjustments (Google Sheets 'Adjustment-Form' staging)
---   2. public.july_partner_adjustment (Web Portal adjustment submissions)
+--   2. public.portal_partner_adjustment (Web Portal adjustment submissions)
 -- Architectural Guarantees:
 --   - 1-to-1 Canonical Stacking: No data alteration, no value rewriting.
 --   - Gapless 1..N ID sequence integrity (Zero Sequence Burning)
@@ -254,8 +254,8 @@ CREATE TRIGGER trg_sheet_adjustments_sync
 AFTER INSERT OR UPDATE OR DELETE ON public.sheet_adjustments
 FOR EACH ROW EXECUTE FUNCTION public.fn_sync_sheet_adjustments();
 
--- 6.2 Trigger from july_partner_adjustment -> core_adjustments (1-to-1 exact)
-CREATE OR REPLACE FUNCTION public.fn_sync_july_partner_adjustment()
+-- 6.2 Trigger from portal_partner_adjustment -> core_adjustments (1-to-1 exact)
+CREATE OR REPLACE FUNCTION public.fn_sync_portal_partner_adjustment()
 RETURNS TRIGGER AS $$
 DECLARE
     v_clean_phone TEXT;
@@ -386,10 +386,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS trg_july_partner_adjustment_sync ON public.july_partner_adjustment;
-CREATE TRIGGER trg_july_partner_adjustment_sync
-AFTER INSERT OR UPDATE OR DELETE ON public.july_partner_adjustment
-FOR EACH ROW EXECUTE FUNCTION public.fn_sync_july_partner_adjustment();
+DROP TRIGGER IF EXISTS trg_portal_partner_adjustment_sync ON public.portal_partner_adjustment;
+CREATE TRIGGER trg_portal_partner_adjustment_sync
+AFTER INSERT OR UPDATE OR DELETE ON public.portal_partner_adjustment
+FOR EACH ROW EXECUTE FUNCTION public.fn_sync_portal_partner_adjustment();
 
 -- 7. DOWNSTREAM HISAAB SYNCHRONIZATION TRIGGER
 CREATE OR REPLACE FUNCTION public.fn_sync_core_to_hisaab_adjustments()
@@ -595,9 +595,9 @@ BEGIN
         v_total_synced := v_total_synced + 1;
     END LOOP;
 
-    -- 2. Sync all rows from july_partner_adjustment
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'july_partner_adjustment') THEN
-        FOR r IN (SELECT * FROM public.july_partner_adjustment ORDER BY id ASC) LOOP
+    -- 2. Sync all rows from portal_partner_adjustment
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'portal_partner_adjustment') THEN
+        FOR r IN (SELECT * FROM public.portal_partner_adjustment ORDER BY id ASC) LOOP
             v_clean_phone := RIGHT(REGEXP_REPLACE(COALESCE(r.partner_number, ''), '[^0-9]', '', 'g'), 10);
             v_clean_veh := UPPER(REGEXP_REPLACE(COALESCE(r.vehicle_number, ''), '[^A-Za-z0-9]', '', 'g'));
             v_clean_city := COALESCE(r.city_name, 'Bengaluru');
@@ -721,7 +721,7 @@ BEGIN
     WHERE data_source = 'PORTAL_FORM'
       AND is_deleted = FALSE
       AND NOT EXISTS (
-          SELECT 1 FROM public.july_partner_adjustment p 
+          SELECT 1 FROM public.portal_partner_adjustment p 
           WHERE 'ADJ-PORTAL-' || p.id::TEXT = core_adjustments.adjustment_id
       );
 

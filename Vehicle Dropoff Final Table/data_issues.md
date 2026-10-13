@@ -2,7 +2,7 @@
 
 Master Table: `public.core_dropoffs`  
 Active Filtered View: `public.active_core_dropoffs` (`WHERE is_deleted = FALSE`)  
-Upstream Sources: `public.sheet_dropoffs` (6,698 rows) and `public.july_vehicle_dropoffs` (174 rows)  
+Upstream Sources: `public.sheet_dropoffs` (6,698 rows) and `public.portal_vehicle_dropoffs` (174 rows)  
 Live Production Master Volume: 6,897 Total Rows (6,608 Active, 289 Soft-Deleted, 0 Sequence Gaps)  
 
 ---
@@ -67,13 +67,13 @@ If these records are ingested naively into `public.core_dropoffs`:
 ### Root Cause Analysis
 During July, August, and September 2026, LetzRyd operated a hybrid transition:
 - Hub ground teams recorded daily vehicle drop-offs in Google Sheets.
-- Operations executives simultaneously completed the digital Vehicle Drop-off Form on the new Web Portal (`public.july_vehicle_dropoffs`).
+- Operations executives simultaneously completed the digital Vehicle Drop-off Form on the new Web Portal (`public.portal_vehicle_dropoffs`).
 - This produced 76 distinct vehicle drop-off events recorded in both Google Sheets and the Web Portal for the exact same vehicle on the same date.
 
 ### Conflict Characteristics
 The two systems capture complementary but non-identical datasets:
 - **Google Sheets (`sheet_dropoffs`)**: High-accuracy partner IDs (`LETZ...`), historical driver tenure notes, and primary Ola/Uber negative balances.
-- **Web Portal (`july_vehicle_dropoffs`)**: Hub inspection notes, digital verification timestamps, detailed pending rental dues, and physical damage penalties assessed by workshop inspectors.
+- **Web Portal (`portal_vehicle_dropoffs`)**: Hub inspection notes, digital verification timestamps, detailed pending rental dues, and physical damage penalties assessed by workshop inspectors.
 
 ### Resolution Logic & Merge Mechanics
 1. **Provenance Tracking**:
@@ -83,7 +83,7 @@ The two systems capture complementary but non-identical datasets:
    - `source_reference_id` stores composite provenance as plain numbers, e.g., `'1402,88'` (or `'1402'`).
    - Dedicated foreign key columns `sheet_dropoff_id BIGINT` and `portal_dropoff_id INTEGER` provide indexed relational linkage.
 3. **Trigger Implementation**:
-   - When `fn_sync_july_vehicle_dropoffs()` executes on an incoming portal row:
+   - When `fn_sync_portal_vehicle_dropoffs()` executes on an incoming portal row:
      ```sql
      SELECT id, data_source, source_reference_id, negative_balance
      INTO v_existing_id, v_existing_source, v_existing_ref, v_existing_neg
@@ -125,7 +125,7 @@ During QA testing, staging validation, and user onboarding of the Web Portal dro
 - `KA01TEST01`
 - `DUMMY1234`
 - `TEMP001`
-A total of 22 test rows were discovered in `public.july_vehicle_dropoffs`.
+A total of 22 test rows were discovered in `public.portal_vehicle_dropoffs`.
 
 ### Downstream Threat
 - Dummy vehicle numbers do not map to `public.core_vehicle_onboarding` or the master fleet inventory (`core_daily_vehicle_status`).
@@ -209,7 +209,7 @@ In spreadsheet workflows, users frequently press delete on rows or remove test r
    - `is_deleted BOOLEAN NOT NULL DEFAULT FALSE`
    - `deleted_at TIMESTAMP WITHOUT TIME ZONE`
 2. **Trigger-Level Soft-Delete Handlers**:
-   When an upstream row is deleted in `sheet_dropoffs` or `july_vehicle_dropoffs`:
+   When an upstream row is deleted in `sheet_dropoffs` or `portal_vehicle_dropoffs`:
    ```sql
    IF TG_OP = 'DELETE' THEN
        UPDATE public.core_dropoffs

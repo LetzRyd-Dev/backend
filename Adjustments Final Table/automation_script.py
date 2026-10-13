@@ -4,7 +4,7 @@ LetzRyd - Adjustments Final Table Automation & Health Engine
 Synchronizes, audits, and validates public.core_adjustments as the
 Single Source of Truth combining:
   1. public.sheet_adjustments (Google Sheet operational entries)
-  2. public.july_partner_adjustment (Web Portal partner adjustment forms)
+  2. public.portal_partner_adjustment (Web Portal partner adjustment forms)
 
 Architectural Guarantees:
   - 1-to-1 Canonical Stacking (Zero data alteration or overwriting)
@@ -58,7 +58,7 @@ def audit_health():
     cur.execute("SELECT count(*) as count FROM public.sheet_adjustments;")
     sheet_total = cur.fetchone()["count"]
 
-    cur.execute("SELECT count(*) as count FROM public.july_partner_adjustment;")
+    cur.execute("SELECT count(*) as count FROM public.portal_partner_adjustment;")
     portal_total = cur.fetchone()["count"]
 
     cur.execute("""
@@ -77,7 +77,7 @@ def audit_health():
 
     print(f"1. DATA SOURCE VOLUMES:")
     print(f"   - Upstream Sheet (sheet_adjustments)     : {sheet_total:,} rows")
-    print(f"   - Upstream Portal (july_partner_adj)     : {portal_total:,} rows")
+    print(f"   - Upstream Portal (portal_partner_adj)     : {portal_total:,} rows")
     print(f"   - Active Core (active_core_adjustments)  : {active_total:,} rows")
     print(f"   - Soft-Deleted Records in Core           : {deleted_total:,} rows")
     print(f"   - Physical Total in core_adjustments     : {physical_total:,} rows")
@@ -214,14 +214,14 @@ def run_backfill():
     conn.close()
 
 def verify_triggers():
-    """Verifies that active triggers exist on sheet_adjustments, july_partner_adjustment, and core_adjustments."""
+    """Verifies that active triggers exist on sheet_adjustments, portal_partner_adjustment, and core_adjustments."""
     conn = get_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
     print("Checking active synchronization triggers...")
     cur.execute("""
         SELECT event_object_table, trigger_name, action_statement
         FROM information_schema.triggers
-        WHERE event_object_table IN ('sheet_adjustments', 'july_partner_adjustment', 'core_adjustments')
+        WHERE event_object_table IN ('sheet_adjustments', 'portal_partner_adjustment', 'core_adjustments')
         ORDER BY event_object_table, trigger_name;
     """)
     trigs = cur.fetchall()

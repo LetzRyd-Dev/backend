@@ -64,40 +64,40 @@ This repository hosts production scripts, architecture specifications, database 
 ---
 
 ### 6. [Vehicle Dropoff Google Sheet](./Vehicle%20Dropoff%20Google%20Sheet/)
-- **Description**: Real-time and batch synchronization engine bridging vehicle dropoff / return reports from Google Sheets (`Drop off History` in `Pan India Master Sheet.xlsx`) and web portal submissions (`public.july_vehicle_dropoffs`) into the centralized production PostgreSQL database (`public.core_dropoffs`).
+- **Description**: Real-time and batch synchronization engine bridging vehicle dropoff / return reports from Google Sheets (`Drop off History` in `Pan India Master Sheet.xlsx`) and web portal submissions (`public.portal_vehicle_dropoffs`) into the centralized production PostgreSQL database (`public.core_dropoffs`).
 - **Key Files**:
   - [`dropoff_pipeline_appscript.js`](./Vehicle%20Dropoff%20Google%20Sheet/dropoff_pipeline_appscript.js): Google Apps Script production engine featuring dual ingestion (standardized `sheet_dropoffs` tab + PostgreSQL), live `handleOnEdit` & `handleOnFormSubmit` triggers, sliding-window incremental sync, full batch synchronization, 11-issue standardization engine (ISS-01 to ISS-11), signed debt polarity calculation, custom spreadsheet UI menu, and JDBC batch resilience.
   - [`schema.sql`](./Vehicle%20Dropoff%20Google%20Sheet/schema.sql): PostgreSQL DDL for `public.sheet_dropoffs` (staging), `public.core_dropoffs` (consolidated master), `public.active_core_dropoffs` view, transactional advisory lock (`777444555`), dual real-time triggers, and the automated consolidation procedure `refresh_core_dropoffs()`.
   - [`data_issues.md`](./Vehicle%20Dropoff%20Google%20Sheet/data_issues.md): Comprehensive 13-column data quality audit documenting all 11 operational anomalies (`ISS-01` through `ISS-11`), category breakdown, and team lead audit resolution logs.
   - [`README.md`](./Vehicle%20Dropoff%20Google%20Sheet/README.md): Exhaustive Knowledge Transfer (KT) document covering architecture diagrams, standardizations catalog, database schema DDL, and operational runbook.
-- **Target Tables**: `public.sheet_dropoffs` + `public.july_vehicle_dropoffs` $\to$ `public.core_dropoffs` (Active View: `public.active_core_dropoffs`)
+- **Target Tables**: `public.sheet_dropoffs` + `public.portal_vehicle_dropoffs` $\to$ `public.core_dropoffs` (Active View: `public.active_core_dropoffs`)
 
 ---
 
 ### 7. [Accidents Google Sheet](./Accidents%20Google%20Sheet/)
-- **Description**: Real-time and batch synchronization engine bridging vehicle accident reports from Google Sheets (`Accident vehicle report` in `WIP- Pan India.xlsx`) and web portal submissions (`public.july_accidents_registry`) into the centralized production PostgreSQL database (`public.core_accidents`).
+- **Description**: Real-time and batch synchronization engine bridging vehicle accident reports from Google Sheets (`Accident vehicle report` in `WIP- Pan India.xlsx`) and web portal submissions (`public.portal_accidents_registry`) into the centralized production PostgreSQL database (`public.core_accidents`).
 - **Key Files**:
   - [`accidents_pipeline_appscript.js`](./Accidents%20Google%20Sheet/accidents_pipeline_appscript.js): Google Apps Script production engine featuring live form submission triggers (`handleOnFormSubmit`), 1-minute catch-up sync (`syncRecentAccidents`), full batch synchronization (`syncAllAccidents`), 10-issue standardization (ACC-01 to ACC-10), vehicle registration regex sanitization, canonical 3-letter city codes, Excel serial date parsing, police acknowledgement boolean consolidation, financial numeric sanitization, and CTE zero-burn upserts.
   - [`schema.sql`](./Accidents%20Google%20Sheet/schema.sql): PostgreSQL DDL for `public.sheet_accidents` (21 columns), `public.core_accidents` (16 columns), composite unique constraints, B-Tree performance indexes, and the automated consolidation procedure `refresh_core_accidents()`.
   - [`data_issues.md`](./Accidents%20Google%20Sheet/data_issues.md): Comprehensive data quality audit documenting all 10 identified operational anomalies (ACC-01 through ACC-10) and automated standardization rules.
   - [`README.md`](./Accidents%20Google%20Sheet/README.md): Exhaustive Knowledge Transfer (KT) document covering architecture diagrams, standardizations catalog, database schema, and trigger setup instructions.
-- **Target Tables**: `public.sheet_accidents` + `public.july_accidents_registry` $\to$ `public.core_accidents`
+- **Target Tables**: `public.sheet_accidents` + `public.portal_accidents_registry` $\to$ `public.core_accidents`
 
 ---
 
 ### 8. [Adjustments Google Sheet](./Adjustments%20Google%20Sheet/)
-- **Description**: Real-time production ingestion pipeline bridging partner adjustment submissions from Google Sheets (`Adjustment-Form` in `Pan India Master Sheet.xlsx`) and portal entries (`public.july_partner_adjustment`) into the centralized production PostgreSQL database (`public.core_adjustments`).
+- **Description**: Real-time production ingestion pipeline bridging partner adjustment submissions from Google Sheets (`Adjustment-Form` in `Pan India Master Sheet.xlsx`) and portal entries (`public.portal_partner_adjustment`) into the centralized production PostgreSQL database (`public.core_adjustments`).
 - **Key Files**:
   - [`adjustments_pipeline_appscript.js`](./Adjustments%20Google%20Sheet/adjustments_pipeline_appscript.js): Google Apps Script production engine featuring live form submit triggers (`handleOnFormSubmit`), 1-minute catch-up sync (`syncRecentAdjustments`), full batch sync (`syncAllAdjustments`), 11-issue standardization (ADJ-01 to ADJ-11), deterministic Partner ID generation (`LETZ<CITY><PHONE>`), phone scientific notation/float sanitization, multi-level approval state hierarchy resolution (Final Level > Level 1 > Pending), Hisaab week parsing, and CTE zero-burn upserts.
   - [`schema.sql`](./Adjustments%20Google%20Sheet/schema.sql): PostgreSQL DDL for `public.sheet_adjustments` (28 columns), `public.core_adjustments` (17 columns), composite unique constraints, B-Tree indexes, and the automated consolidation procedure `refresh_core_adjustments()`.
   - [`data_issues.md`](./Adjustments%20Google%20Sheet/data_issues.md): Comprehensive data hygiene catalog documenting all 11 identified data quality anomalies (ADJ-01 through ADJ-11) and automated normalization specifications.
   - [`README.md`](./Adjustments%20Google%20Sheet/README.md): Architecture documentation, multi-level approval hierarchy rules, table column dictionaries, and deployment runbooks.
-- **Target Tables**: `public.sheet_adjustments` + `public.july_partner_adjustment` $\to$ `public.core_adjustments`
+- **Target Tables**: `public.sheet_adjustments` + `public.portal_partner_adjustment` $\to$ `public.core_adjustments`
 
 ---
 
 ### 9. [Walkin Final Table](./Walkin%20Final%20Table/)
-- **Description**: Real-time unified master single source of truth (`public.core_walkin`) combining driver and partner walk-in event records from Google Sheets (`sheet_walkins`) and web portal systems (`july_new_walkins` and `july_existing_walkins`).
+- **Description**: Real-time unified master single source of truth (`public.core_walkin`) combining driver and partner walk-in event records from Google Sheets (`sheet_walkins`) and web portal systems (`portal_new_walkins` and `portal_existing_walkins`).
 - **Key Files**:
   - [`schema.sql`](./Walkin%20Final%20Table/schema.sql): PostgreSQL DDL for `public.core_walkin`, indexes, and 3 automated PostgreSQL triggers for real-time synchronization (<10ms).
   - [`automation_script.py`](./Walkin%20Final%20Table/automation_script.py): Parameterized Python engine for initial idempotent backfill, health auditing, and reconciliation.
@@ -105,7 +105,7 @@ This repository hosts production scripts, architecture specifications, database 
   - [`README.md`](./Walkin%20Final%20Table/README.md): Exhaustive architecture documentation, trigger mapping matrix, and operational commands.
 - **Target Table**: `public.core_walkin` (PostgreSQL)
 - **Primary Features**:
-  - Zero changes to source tables (`sheet_walkins`, `july_new_walkins`, `july_existing_walkins` remain untouched)
+  - Zero changes to source tables (`sheet_walkins`, `portal_new_walkins`, `portal_existing_walkins` remain untouched)
   - Native PostgreSQL triggers providing instant live synchronization (<10ms)
   - Gapless sequential primary key (`id` allocated via transactional advisory lock `pg_advisory_xact_lock` guaranteeing continuous 1..N IDs without sequence jumps)
   - Non-destructive soft deletes (`is_deleted = TRUE`, `deleted_at = CURRENT_TIMESTAMP` upon source deletions, maintaining gapless IDs and audit history)
@@ -117,7 +117,7 @@ This repository hosts production scripts, architecture specifications, database 
 ---
 
 ### 10. [Vehicle Onboarding Final Table](./Vehicle%20Onboarding%20Final%20Table/)
-- **Description**: Real-time unified master Single Source of Truth (`public.core_vehicle_onboarding`) merging Google Sheets fleet onboarding (`sheet_vehicle_onboarding`) and LetzRyd Web Portal Intake Form (`july_vehicle_onboarding`) with deterministic Portal Priority.
+- **Description**: Real-time unified master Single Source of Truth (`public.core_vehicle_onboarding`) merging Google Sheets fleet onboarding (`sheet_vehicle_onboarding`) and LetzRyd Web Portal Intake Form (`portal_vehicle_onboarding`) with deterministic Portal Priority.
 - **Key Files**:
   - [`schema.sql`](./Vehicle%20Onboarding%20Final%20Table/schema.sql): PostgreSQL DDL for `public.core_vehicle_onboarding`, indexes, and dual triggers for real-time unidirectional ingestion (<10ms).
   - [`automation_script.py`](./Vehicle%20Onboarding%20Final%20Table/automation_script.py): Parameterized Python engine for initial backfill, reconciliation, and automated health audits.
@@ -146,7 +146,7 @@ This repository hosts production scripts, architecture specifications, database 
 ---
 
 ### 12. [Maintenance Final Table](./Maintenance%20Final%20Table/)
-- **Description**: Real-time unified master Single Source of Truth (`public.core_maintenance`) consolidating fleet workshop downtime and repair intervals across Google Sheets (`sheet_maintenance`) and the Web Portal (`july_maintenance_in` + `july_maintenance_out`).
+- **Description**: Real-time unified master Single Source of Truth (`public.core_maintenance`) consolidating fleet workshop downtime and repair intervals across Google Sheets (`sheet_maintenance`) and the Web Portal (`portal_maintenance_in` + `portal_maintenance_out`).
 - **Key Files**:
   - [`schema.sql`](./Maintenance%20Final%20Table/schema.sql): PostgreSQL DDL for `public.core_maintenance`, indexes, inward-outward interval pairing, and real-time triggers (`sync_core_maintenance_from_sheet`, `sync_core_maintenance_from_portal`).
   - [`automation_script.py`](./Maintenance%20Final%20Table/automation_script.py): Production Python health check, verification, backfill, and interval repair engine (`--audit`, `--backfill`, `--verify-triggers`, `--repair-intervals`).
@@ -244,9 +244,9 @@ This repository hosts production scripts, architecture specifications, database 
 ---
 
 ### 19. [Partner Onboarding Final Table](./Partner%20Onboarding%20Final%20Table/)
-- **Description**: Real-time unified master Single Source of Truth (public.core_partner_onboarding) consolidating driver-partner registrations across Google Sheets (sheet_driver_onboarding) and the Web Portal (july_form_onboarding).
+- **Description**: Real-time unified master Single Source of Truth (public.core_partner_onboarding) consolidating driver-partner registrations across Google Sheets (sheet_driver_onboarding) and the Web Portal (portal_form_onboarding).
 - **Key Files**:
-  - [schema.sql](./Partner%20Onboarding%20Final%20Table/schema.sql): PostgreSQL DDL for public.core_partner_onboarding, filtered view ctive_core_partner_onboarding, advisory locks (777111222), real-time triggers (	rg_sheet_driver_onboarding_sync, 	rg_july_form_onboarding_sync), and consolidation procedure 
+  - [schema.sql](./Partner%20Onboarding%20Final%20Table/schema.sql): PostgreSQL DDL for public.core_partner_onboarding, filtered view ctive_core_partner_onboarding, advisory locks (777111222), real-time triggers (	rg_sheet_driver_onboarding_sync, 	rg_portal_form_onboarding_sync), and consolidation procedure 
 efresh_core_partner_onboarding().
   - [data_issues.md](./Partner%20Onboarding%20Final%20Table/data_issues.md): Master audit catalog of all 47 data quality anomalies, document extraction fixes, and standardization rules.
   - [README.md](./Partner%20Onboarding%20Final%20Table/README.md): Master architecture documentation, trigger specifications, and operational runbook.

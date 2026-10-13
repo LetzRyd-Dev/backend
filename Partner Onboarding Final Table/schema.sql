@@ -3,7 +3,7 @@
 -- =============================================================================
 -- Target Database: postgres
 -- Target Schema  : public
--- Source Tables  : sheet_driver_onboarding (Google Sheet) + july_form_onboarding (Portal Form)
+-- Source Tables  : sheet_driver_onboarding (Google Sheet) + portal_form_onboarding (Portal Form)
 -- Master Table   : public.core_partner_onboarding
 -- Active View    : public.active_core_partner_onboarding
 -- Host           : YOUR_DB_HOST_HERE:5432
@@ -299,8 +299,8 @@ CREATE TRIGGER trg_sheet_driver_onboarding_sync
 AFTER INSERT OR UPDATE OR DELETE ON public.sheet_driver_onboarding
 FOR EACH ROW EXECUTE FUNCTION public.fn_sync_sheet_driver_onboarding();
 
--- Trigger function for july_form_onboarding -> core_partner_onboarding
-CREATE OR REPLACE FUNCTION public.fn_sync_july_form_onboarding()
+-- Trigger function for portal_form_onboarding -> core_partner_onboarding
+CREATE OR REPLACE FUNCTION public.fn_sync_portal_form_onboarding()
 RETURNS TRIGGER AS $$
 DECLARE
     v_clean_phone VARCHAR(20);
@@ -465,7 +465,7 @@ BEGIN
             END IF;
         END IF;
     EXCEPTION WHEN OTHERS THEN
-        RAISE WARNING 'fn_sync_july_form_onboarding error shielded for id %: %', COALESCE(NEW.id, 0), SQLERRM;
+        RAISE WARNING 'fn_sync_portal_form_onboarding error shielded for id %: %', COALESCE(NEW.id, 0), SQLERRM;
     END;
     RETURN NEW;
 END;
@@ -473,11 +473,11 @@ $$ LANGUAGE plpgsql;
 
 DO $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'july_form_onboarding') THEN
-        DROP TRIGGER IF EXISTS trg_july_form_onboarding_sync ON public.july_form_onboarding;
-        CREATE TRIGGER trg_july_form_onboarding_sync
-        AFTER INSERT OR UPDATE OR DELETE ON public.july_form_onboarding
-        FOR EACH ROW EXECUTE FUNCTION public.fn_sync_july_form_onboarding();
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'portal_form_onboarding') THEN
+        DROP TRIGGER IF EXISTS trg_portal_form_onboarding_sync ON public.portal_form_onboarding;
+        CREATE TRIGGER trg_portal_form_onboarding_sync
+        AFTER INSERT OR UPDATE OR DELETE ON public.portal_form_onboarding
+        FOR EACH ROW EXECUTE FUNCTION public.fn_sync_portal_form_onboarding();
     END IF;
 END $$;
 
@@ -627,12 +627,12 @@ BEGIN
     END LOOP;
 
     -- 5.2 Reconcile Portal Form Submissions
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'july_form_onboarding') THEN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'portal_form_onboarding') THEN
         FOR r IN (
             SELECT DISTINCT ON (RIGHT(REGEXP_REPLACE(phone_number, '[^0-9]', '', 'g'), 10))
                 p.*,
                 RIGHT(REGEXP_REPLACE(phone_number, '[^0-9]', '', 'g'), 10) AS clean_phone
-            FROM public.july_form_onboarding p
+            FROM public.portal_form_onboarding p
             WHERE p.phone_number IS NOT NULL AND LENGTH(REGEXP_REPLACE(p.phone_number, '[^0-9]', '', 'g')) >= 10
             ORDER BY RIGHT(REGEXP_REPLACE(phone_number, '[^0-9]', '', 'g'), 10), p.created_at DESC NULLS LAST, p.id DESC
         ) LOOP
@@ -819,11 +819,11 @@ SET source_origin = CASE
             SELECT 1 FROM public.sheet_driver_onboarding s 
             WHERE RIGHT(REGEXP_REPLACE(s.driver_phone, '[^0-9]', '', 'g'), 10) = c.phone_number
         ) AND EXISTS (
-            SELECT 1 FROM public.july_form_onboarding j 
+            SELECT 1 FROM public.portal_form_onboarding j 
             WHERE RIGHT(REGEXP_REPLACE(j.phone_number, '[^0-9]', '', 'g'), 10) = c.phone_number
         ) THEN 'MERGED'
         WHEN EXISTS (
-            SELECT 1 FROM public.july_form_onboarding j 
+            SELECT 1 FROM public.portal_form_onboarding j 
             WHERE RIGHT(REGEXP_REPLACE(j.phone_number, '[^0-9]', '', 'g'), 10) = c.phone_number
         ) THEN 'PORTAL_FORM'
         ELSE 'GOOGLE_SHEET'
@@ -897,7 +897,7 @@ SET
     reference_phone = COALESCE(c.reference_phone, NULLIF(RIGHT(REGEXP_REPLACE(j.ref1_phone, '[^0-9]', '', 'g'), 10), '')),
     onboarding_type = COALESCE(c.onboarding_type, j.candidate_role, 'Individual'),
     updated_at = (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')
-FROM public.july_form_onboarding j
+FROM public.portal_form_onboarding j
 WHERE c.source_portal_form_id = j.id;
 
 -- Fix 6.9: Restore 'IP' in partner_id for all Operators to match Google Sheet ID s Creations and dispatch ledgers

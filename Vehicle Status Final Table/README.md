@@ -21,10 +21,10 @@ The operational status infrastructure is designed in three discrete tiers to iso
 ========================================================================================
          GOOGLE SHEETS INGESTION                         WEB PORTAL INGESTION
     +--------------------------------+             +------------------------------+
-    | * sheet_vehicle_onboarding     |             | * july_vehicle_onboarding    |
-    | * sheet_vehicle_allocations    |             | * july_allocation_form       |
-    | * sheet_dropoffs               |             | * july_vehicle_dropoffs      |
-    | * sheet_vehicle_status (Daily) |             | * july_maintenance_in / out |
+    | * sheet_vehicle_onboarding     |             | * portal_vehicle_onboarding    |
+    | * sheet_vehicle_allocations    |             | * portal_allocation_form       |
+    | * sheet_dropoffs               |             | * portal_vehicle_dropoffs      |
+    | * sheet_vehicle_status (Daily) |             | * portal_maintenance_in / out |
     +----------------+---------------+             +--------------+---------------+
                      |                                            |
                      +---------------------+----------------------+

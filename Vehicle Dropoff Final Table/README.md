@@ -14,7 +14,7 @@ Vehicle drop-offs represent the critical custody handover event where a driver r
 1. **Google Sheets Operational Pipeline (`public.sheet_dropoffs`)**:
    - Continuous intake from ground fleet operations teams across Bengaluru, Hyderabad, Mumbai, Pune, and Delhi hubs.
    - Total volume: 6,698 raw records.
-2. **Web Portal Digital Dropoff Form (`public.july_vehicle_dropoffs`)**:
+2. **Web Portal Digital Dropoff Form (`public.portal_vehicle_dropoffs`)**:
    - Digital handover and workshop inspection intake with granular dues, physical damage penalties, and supervisor remarks.
    - Total volume: 174 records.
 
@@ -43,12 +43,12 @@ Vehicle drop-offs represent the critical custody handover event where a driver r
                           | Google Apps Script JDBC Ingestion                | FastAPI Web Portal Backend
                           v                                                  v
 +----------------------------------------------------+----------------------------------------------+
-| public.sheet_dropoffs                              | public.july_vehicle_dropoffs                 |
+| public.sheet_dropoffs                              | public.portal_vehicle_dropoffs                 |
 | (6,492 rows - 14 columns)                          | (121 rows - 12 columns)                      |
 +----------------------------------------------------+----------------------------------------------+
                           |                                                  |
                 AFTER INSERT/UPDATE/DELETE                         AFTER INSERT/UPDATE/DELETE
-                [trg_sheet_dropoffs_sync]                          [trg_july_vehicle_dropoffs_sync]
+                [trg_sheet_dropoffs_sync]                          [trg_portal_vehicle_dropoffs_sync]
                           |                                                  |
                           +------------------------+-------------------------+
                                                    |
@@ -133,7 +133,7 @@ Total Columns: **20**
 | 1 | `id` | `BIGINT` | `PRIMARY KEY` | Gapless continuous integer sequence assigned via advisory lock `777444555`. |
 | 2 | `dropoff_id` | `VARCHAR(50)` | `UNIQUE NOT NULL` | Plain numerical business identifier matching `id::TEXT` (`'1578'`). |
 | 3 | `sheet_dropoff_id` | `BIGINT` | Nullable | Relational foreign key reference linking directly to `sheet_dropoffs(dropoff_id)`. |
-| 4 | `portal_dropoff_id` | `INTEGER` | Nullable | Relational foreign key reference linking directly to `july_vehicle_dropoffs(id)`. |
+| 4 | `portal_dropoff_id` | `INTEGER` | Nullable | Relational foreign key reference linking directly to `portal_vehicle_dropoffs(id)`. |
 | 5 | `return_date` | `DATE` | `NOT NULL` | Standardized ISO calendar date of vehicle return (`YYYY-MM-DD`). |
 | 6 | `return_type` | `VARCHAR(50)` | `NOT NULL` | Classification: `Attrition`, `Repair and Maintenance`, `Force Recovery`. |
 | 7 | `driver_id` | `VARCHAR(50)` | Nullable | Identifier linking to `core_partner_onboarding` (e.g. `LETZBLRIP9876543210`). |
@@ -170,9 +170,9 @@ Total Columns: **20**
      - If found: Updates existing record, merges liabilities, and updates `updated_at`.
      - If new: Fetches `MAX(id) + 1` and inserts row with `data_source = 'GOOGLE_SHEET'`.
 
-### Trigger 2: `trg_july_vehicle_dropoffs_sync` on `public.july_vehicle_dropoffs`
-- **Execution Event**: `AFTER INSERT OR UPDATE OR DELETE ON public.july_vehicle_dropoffs FOR EACH ROW`
-- **Function**: `public.fn_sync_july_vehicle_dropoffs()`
+### Trigger 2: `trg_portal_vehicle_dropoffs_sync` on `public.portal_vehicle_dropoffs`
+- **Execution Event**: `AFTER INSERT OR UPDATE OR DELETE ON public.portal_vehicle_dropoffs FOR EACH ROW`
+- **Function**: `public.fn_sync_portal_vehicle_dropoffs()`
 - **Logic**:
   1. Acquires transactional advisory lock `777444555`.
   2. On `DELETE`: Sets `is_deleted = TRUE` if record originated as `PORTAL_FORM`.
@@ -200,7 +200,7 @@ SELECT public.refresh_core_dropoffs();
    - Filters invalid plates and header noise.
    - Upserts into `public.core_dropoffs`.
 3. **Phase 2 - Portal Ingestion & Overlay**:
-   - Loops through `public.july_vehicle_dropoffs` ordered by `id ASC`.
+   - Loops through `public.portal_vehicle_dropoffs` ordered by `id ASC`.
    - Merges portal liabilities onto matching sheet records (`data_source = 'MERGED'`).
    - Inserts unlinked portal returns as `PORTAL_FORM`.
 4. **Phase 3 - Redundant Duplicate Purging**:

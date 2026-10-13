@@ -9,8 +9,8 @@ The **Master Maintenance Pipeline** unifies LetzRyd's dual operational maintenan
 
 ### Integrated Source Systems
 1. **`public.sheet_maintenance`**: Google Sheets operational maintenance records synchronized via automated 1-minute Apps Script JDBC triggers from the intermediate master sheet (`Unified_Maintenance_source`).
-2. **`public.july_maintenance_in`**: LetzRyd Web Portal Inward Maintenance Ticket (capturing repair diagnosis, estimates, approval documents, and damage photos).
-3. **`public.july_maintenance_out`**: LetzRyd Web Portal Outward Maintenance Ticket (capturing repair completion, release odometer, invoices, insurance liability deductions, payment UTRs, and repaired vehicle photos).
+2. **`public.portal_maintenance_in`**: LetzRyd Web Portal Inward Maintenance Ticket (capturing repair diagnosis, estimates, approval documents, and damage photos).
+3. **`public.portal_maintenance_out`**: LetzRyd Web Portal Outward Maintenance Ticket (capturing repair completion, release odometer, invoices, insurance liability deductions, payment UTRs, and repaired vehicle photos).
 
 ---
 
@@ -27,7 +27,7 @@ The **Master Maintenance Pipeline** unifies LetzRyd's dual operational maintenan
                   | 1-Min Apps Script JDBC            | FastAPI Backend               | FastAPI Backend
                   v                                   v                               v
 +------------------------------------+----------------------------------+---------------------------+
-| public.sheet_maintenance           | public.july_maintenance_in       | public.july_maintenance_ou|
+| public.sheet_maintenance           | public.portal_maintenance_in       | public.portal_maintenance_ou|
 +------------------------------------+----------------------------------+---------------------------+
                   |                                   |                               |
         AFTER INSERT/UPDATE/DELETE          AFTER INSERT/UPDATE/DELETE      AFTER INSERT/UPDATE/DELETE
@@ -66,7 +66,7 @@ The **Master Maintenance Pipeline** unifies LetzRyd's dual operational maintenan
 ## 3. The 6 Core Architectural Guarantees
 
 1. **Zero Modifications to Source Systems**:
-   - Source tables (`sheet_maintenance`, `july_maintenance_in`, `july_maintenance_out`) remain 100% decoupled and untouched.
+   - Source tables (`sheet_maintenance`, `portal_maintenance_in`, `portal_maintenance_out`) remain 100% decoupled and untouched.
 2. **Instant Live Synchronization (<10ms)**:
    - Native PostgreSQL database triggers execute immediately `AFTER INSERT OR UPDATE OR DELETE`.
 3. **Portal Priority Rule**:
@@ -86,8 +86,8 @@ The **Master Maintenance Pipeline** unifies LetzRyd's dual operational maintenan
 |---|---|---|
 | `id` | `BIGINT PRIMARY KEY` | Gapless sequential primary key (`1 .. N`) |
 | `source_type` | `VARCHAR(50) NOT NULL` | Data origin: `'WEB_PORTAL'` or `'GOOGLE_SHEET'` |
-| `portal_maintenance_in_id` | `INTEGER` | Reference to `july_maintenance_in.id` |
-| `portal_maintenance_out_id`| `INTEGER` | Reference to `july_maintenance_out.id` |
+| `portal_maintenance_in_id` | `INTEGER` | Reference to `portal_maintenance_in.id` |
+| `portal_maintenance_out_id`| `INTEGER` | Reference to `portal_maintenance_out.id` |
 | `sheet_maintenance_id` | `BIGINT` | Reference to `sheet_maintenance.id` |
 | `vehicle_number` | `VARCHAR(50) NOT NULL` | Standardized alphanumeric vehicle registration number |
 | `city` | `VARCHAR(100) NOT NULL` | Canonical operational hub (`Bangalore`, `Mumbai`, `Hyderabad`) |

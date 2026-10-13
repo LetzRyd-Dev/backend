@@ -4,7 +4,7 @@ LetzRyd - Core Dropoff Final Table Automation & Health Audit Engine
 Synchronizes, audits, and validates public.core_dropoffs as the
 Single Source of Truth (SSOT) consolidating vehicle drop-offs from:
   1. public.sheet_dropoffs (Google Sheets operational returns: 6,492 rows)
-  2. public.july_vehicle_dropoffs (Web Portal digital dropoff submissions: 121 rows)
+  2. public.portal_vehicle_dropoffs (Web Portal digital dropoff submissions: 121 rows)
 
 Live DB Production Baselines:
   - Total rows in public.core_dropoffs : 6,531 (Active: 6,397, Soft-deleted: 134)
@@ -122,7 +122,7 @@ def audit_health(conn):
     cur.execute("SELECT to_regclass('public.sheet_dropoffs') AS exists;")
     has_sheet = cur.fetchone()["exists"] is not None
 
-    cur.execute("SELECT to_regclass('public.july_vehicle_dropoffs') AS exists;")
+    cur.execute("SELECT to_regclass('public.portal_vehicle_dropoffs') AS exists;")
     has_portal = cur.fetchone()["exists"] is not None
 
     sheet_total = 0
@@ -136,11 +136,11 @@ def audit_health(conn):
         print("   - Google Sheets (public.sheet_dropoffs)       : Table not present")
 
     if has_portal:
-        cur.execute("SELECT COUNT(*) AS count FROM public.july_vehicle_dropoffs;")
+        cur.execute("SELECT COUNT(*) AS count FROM public.portal_vehicle_dropoffs;")
         portal_total = cur.fetchone()["count"]
-        print(f"   - Web Portal    (public.july_vehicle_dropoffs): {portal_total} rows (Baseline: 121)")
+        print(f"   - Web Portal    (public.portal_vehicle_dropoffs): {portal_total} rows (Baseline: 121)")
     else:
-        print("   - Web Portal    (public.july_vehicle_dropoffs): Table not present")
+        print("   - Web Portal    (public.portal_vehicle_dropoffs): Table not present")
 
     # 4. Gapless ID Continuity Audit (Advisory Lock Integrity)
     print("\n4. Gapless Sequence Integrity Audit:")
@@ -310,7 +310,7 @@ def audit_health(conn):
     cur.execute("""
         SELECT trigger_name, event_manipulation, event_object_table, action_statement
         FROM information_schema.triggers
-        WHERE trigger_name IN ('trg_sheet_dropoffs_sync', 'trg_july_vehicle_dropoffs_sync')
+        WHERE trigger_name IN ('trg_sheet_dropoffs_sync', 'trg_portal_vehicle_dropoffs_sync')
         ORDER BY trigger_name;
     """)
     installed_triggers = cur.fetchall()
@@ -319,8 +319,8 @@ def audit_health(conn):
     print(f"   - Installed Triggers  : {', '.join(trg_names) if trg_names else 'None'}")
     if "trg_sheet_dropoffs_sync" not in trg_names:
         print("   - Warning: trg_sheet_dropoffs_sync not installed on public.sheet_dropoffs")
-    if "trg_july_vehicle_dropoffs_sync" not in trg_names:
-        print("   - Warning: trg_july_vehicle_dropoffs_sync not installed on public.july_vehicle_dropoffs")
+    if "trg_portal_vehicle_dropoffs_sync" not in trg_names:
+        print("   - Warning: trg_portal_vehicle_dropoffs_sync not installed on public.portal_vehicle_dropoffs")
 
     cur.execute("""
         SELECT routine_name 
@@ -366,7 +366,7 @@ def verify_triggers(conn):
 
     # Pre-clean any test artifacts
     cur.execute("DELETE FROM public.sheet_dropoffs WHERE vehicle_number = %s;", (test_veh,))
-    cur.execute("DELETE FROM public.july_vehicle_dropoffs WHERE vehicle_number = %s;", (test_veh,))
+    cur.execute("DELETE FROM public.portal_vehicle_dropoffs WHERE vehicle_number = %s;", (test_veh,))
     cur.execute("DELETE FROM public.core_dropoffs WHERE vehicle_number = %s;", (test_veh,))
 
     try:
@@ -420,9 +420,9 @@ def verify_triggers(conn):
         print(f"   [PASS] Updated in core (return_type={updated_row['return_type']}, liability={updated_row['total_liability']})")
 
         # Step 3: Portal Overlay & Merge
-        print("\n3. Testing Portal Overlay & Merge (INSERT on public.july_vehicle_dropoffs)...")
+        print("\n3. Testing Portal Overlay & Merge (INSERT on public.portal_vehicle_dropoffs)...")
         cur.execute("""
-            INSERT INTO public.july_vehicle_dropoffs (
+            INSERT INTO public.portal_vehicle_dropoffs (
                 vehicle_number, city_name, driver_id, driver_name,
                 driver_type, return_date, return_type, pending_dues,
                 damage_penalty, remarks
@@ -453,7 +453,7 @@ def verify_triggers(conn):
         # Step 4: Soft-Delete Verification
         print("\n4. Testing Soft-Delete Protection (DELETE on upstream sources)...")
         cur.execute("DELETE FROM public.sheet_dropoffs WHERE vehicle_number = %s;", (test_veh,))
-        cur.execute("DELETE FROM public.july_vehicle_dropoffs WHERE vehicle_number = %s;", (test_veh,))
+        cur.execute("DELETE FROM public.portal_vehicle_dropoffs WHERE vehicle_number = %s;", (test_veh,))
 
         # Mark test core row soft-deleted for verification
         cur.execute("""
@@ -476,7 +476,7 @@ def verify_triggers(conn):
         # Step 5: Test Artifact Cleanup
         print("\n5. Cleaning Up Test Artifacts & Restoring Database State...")
         cur.execute("DELETE FROM public.sheet_dropoffs WHERE vehicle_number = %s;", (test_veh,))
-        cur.execute("DELETE FROM public.july_vehicle_dropoffs WHERE vehicle_number = %s;", (test_veh,))
+        cur.execute("DELETE FROM public.portal_vehicle_dropoffs WHERE vehicle_number = %s;", (test_veh,))
         cur.execute("DELETE FROM public.core_dropoffs WHERE vehicle_number = %s;", (test_veh,))
 
         cur.execute("""

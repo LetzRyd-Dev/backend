@@ -4,7 +4,7 @@
 -- Target Database: postgres
 -- Target Schema  : public
 -- Source 1       : public.sheet_accidents (Ingested from Google Sheets 'Accident vehicle report')
--- Source 2       : public.july_accidents_registry (Portal Form submissions)
+-- Source 2       : public.portal_accidents_registry (Portal Form submissions)
 -- Target         : public.core_accidents (Consolidated Master Table)
 -- Host           : YOUR_DB_HOST_HERE:5432
 -- Description    : Central table definitions, gapless sequencing with advisory locks (777222333),
@@ -291,8 +291,8 @@ CREATE TRIGGER trg_sheet_accidents_sync
 AFTER INSERT OR UPDATE OR DELETE ON public.sheet_accidents
 FOR EACH ROW EXECUTE FUNCTION public.fn_sync_sheet_accidents();
 
--- Trigger function for july_accidents_registry -> core_accidents
-CREATE OR REPLACE FUNCTION public.fn_sync_july_accidents_registry()
+-- Trigger function for portal_accidents_registry -> core_accidents
+CREATE OR REPLACE FUNCTION public.fn_sync_portal_accidents_registry()
 RETURNS TRIGGER AS $$
 DECLARE
     v_clean_veh VARCHAR(20);
@@ -443,11 +443,11 @@ $$ LANGUAGE plpgsql;
 
 DO $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'july_accidents_registry') THEN
-        DROP TRIGGER IF EXISTS trg_july_accidents_registry_sync ON public.july_accidents_registry;
-        CREATE TRIGGER trg_july_accidents_registry_sync
-        AFTER INSERT OR UPDATE OR DELETE ON public.july_accidents_registry
-        FOR EACH ROW EXECUTE FUNCTION public.fn_sync_july_accidents_registry();
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'portal_accidents_registry') THEN
+        DROP TRIGGER IF EXISTS trg_portal_accidents_registry_sync ON public.portal_accidents_registry;
+        CREATE TRIGGER trg_portal_accidents_registry_sync
+        AFTER INSERT OR UPDATE OR DELETE ON public.portal_accidents_registry
+        FOR EACH ROW EXECUTE FUNCTION public.fn_sync_portal_accidents_registry();
     END IF;
 END $$;
 
@@ -587,9 +587,9 @@ BEGIN
         END IF;
     END LOOP;
 
-    -- Step 5.2: Ingest/Upsert from july_accidents_registry
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'july_accidents_registry') THEN
-        FOR r IN (SELECT * FROM public.july_accidents_registry WHERE vehicle_number IS NOT NULL AND vehicle_number != '' ORDER BY created_at ASC, id ASC) LOOP
+    -- Step 5.2: Ingest/Upsert from portal_accidents_registry
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'portal_accidents_registry') THEN
+        FOR r IN (SELECT * FROM public.portal_accidents_registry WHERE vehicle_number IS NOT NULL AND vehicle_number != '' ORDER BY created_at ASC, id ASC) LOOP
             v_clean_veh := UPPER(REGEXP_REPLACE(r.vehicle_number, '[^A-Za-z0-9]', '', 'g'));
             v_clean_city := UPPER(TRIM(COALESCE(LEFT(r.city_name, 3), 'BLR')));
             
@@ -730,13 +730,13 @@ WHERE c.id = r.id AND r.rn > 1;
 -- Fix 6.2: Backfill missing multi-angle photos from portal table
 DO $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'july_accidents_registry') THEN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'portal_accidents_registry') THEN
         UPDATE public.core_accidents c
         SET accident_photos_url = public.fn_combine_portal_photos(
                 j.front_vehicle_photo, j.back_vehicle_photo, j.right_vehicle_photo, j.left_vehicle_photo
             ),
             updated_at = (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')
-        FROM public.july_accidents_registry j
+        FROM public.portal_accidents_registry j
         WHERE c.source_reference_id LIKE '%ACC-PORTAL-' || j.id::TEXT || '%'
           AND (c.accident_photos_url IS NULL OR c.accident_photos_url = j.front_vehicle_photo);
     END IF;

@@ -1,6 +1,6 @@
 # Vehicle Allocation Data Issues & Conflict Analysis
 
-This document details the critical data issues, column mismatches, and merge conflicts discovered between `public.sheet_vehicle_allocations` (7,132 rows) and `public.july_allocation_form` (303 rows) in PostgreSQL, along with the resolution logic required for `public.core_vehicle_allocation`.
+This document details the critical data issues, column mismatches, and merge conflicts discovered between `public.sheet_vehicle_allocations` (7,132 rows) and `public.portal_allocation_form` (303 rows) in PostgreSQL, along with the resolution logic required for `public.core_vehicle_allocation`.
 
 ---
 
@@ -98,7 +98,7 @@ The company's standard Operator/Driver ID format embeds the driver's phone numbe
 
 ### The Issue:
 * `sheet_vehicle_allocations` has 2 duplicate pairs for the same `(vehicle_number, allocation_date)`.
-* `july_allocation_form` has 11 duplicate pairs for the same `(vehicle_number, allocation_date)`.
+* `portal_allocation_form` has 11 duplicate pairs for the same `(vehicle_number, allocation_date)`.
 
 ### Resolution Logic:
 * Add `submission_timestamp` / `created_at` ordering so that when multiple entries exist for the same vehicle on the same day, the latest verified submission takes precedence.
@@ -108,7 +108,7 @@ The company's standard Operator/Driver ID format embeds the driver's phone numbe
 ## 7. Portal Drop-Off Leakage Isolation (Multi-Variant Exclusion)
 
 ### The Issue:
-* The web portal table `public.july_allocation_form` contains 119 records where `allocation_type` is logged as a vehicle return/drop-off.
+* The web portal table `public.portal_allocation_form` contains 119 records where `allocation_type` is logged as a vehicle return/drop-off.
 * In initial sync configurations, 85 of these records leaked into `public.core_vehicle_allocation`.
 * Drop-offs belong strictly to the vehicle drop-off domain (`public.core_dropoffs`) and must not contaminate active allocations.
 

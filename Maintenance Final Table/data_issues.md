@@ -5,8 +5,8 @@
 The unified table **`public.core_maintenance`** serves as the authoritative Single Source of Truth (SSOT) for fleet vehicle downtime and workshop repairs across all LetzRyd operations. It consolidates two distinct operational intake systems:
 
 1. **Web Portal Maintenance Workflows**:
-   - **`public.july_maintenance_in`**: Inward repair ticket, intake odometer (`vehicle_k_m_s`), repair diagnosis, estimated delivery, estimated amount, insurance claim filing, and damage photos.
-   - **`public.july_maintenance_out`**: Outward release ticket, release odometer (`vehicle_out_k_m_s`), RFD date, job card invoice number, invoice amount, insurance liability deductions, payable amount, payment status, and release photos.
+   - **`public.portal_maintenance_in`**: Inward repair ticket, intake odometer (`vehicle_k_m_s`), repair diagnosis, estimated delivery, estimated amount, insurance claim filing, and damage photos.
+   - **`public.portal_maintenance_out`**: Outward release ticket, release odometer (`vehicle_out_k_m_s`), RFD date, job card invoice number, invoice amount, insurance liability deductions, payable amount, payment status, and release photos.
 2. **Google Sheets Operations Staging**:
    - **`public.sheet_maintenance`**: Daily fleet status maintenance records (4,792 rows) synchronized in real-time from the master operations sheet (`Unified_Maintenance_source`).
 
@@ -21,7 +21,7 @@ The unified table **`public.core_maintenance`** serves as the authoritative Sing
   - Duplicate Google Sheet entries are skipped to prevent duplicate downtime intervals.
 
 ### 2.2 Temporal Pairing & Interval Closure
-- **Rule**: Every `july_maintenance_in` row is joined with its corresponding `july_maintenance_out` row via `inward_id`.
+- **Rule**: Every `portal_maintenance_in` row is joined with its corresponding `portal_maintenance_out` row via `inward_id`.
 - If an outward ticket exists: `start_date` = inward date, `end_date` = RFD date / outward date, `maintenance_status` = `'COMPLETED_RFD'`.
 - If no outward ticket exists: `start_date` = inward date, `end_date` = `NULL`, `maintenance_status` = `'IN_PROGRESS'`.
 

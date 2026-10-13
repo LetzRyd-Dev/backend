@@ -1,6 +1,6 @@
 # LetzRyd Accidents Google Sheet Pipeline & PostgreSQL Master Ingestion
 
-Real-time and batch synchronization engine bridging vehicle accident reports from Google Sheets (`Accident vehicle report` in `WIP- Pan India.xlsx`) and the web portal form (`public.july_accidents_registry`) into the centralized production PostgreSQL database (`public.core_accidents`).
+Real-time and batch synchronization engine bridging vehicle accident reports from Google Sheets (`Accident vehicle report` in `WIP- Pan India.xlsx`) and the web portal form (`public.portal_accidents_registry`) into the centralized production PostgreSQL database (`public.core_accidents`).
 
 ---
 
@@ -10,9 +10,9 @@ Real-time and batch synchronization engine bridging vehicle accident reports fro
 graph TD
     A[Google Form / Response Sheet\n'Accident vehicle report'] -->|On-FormSubmit & On-Edit| B[Google Apps Script\naccidents_pipeline_appscript.js]
     B -->|JDBC Batch Upsert with Standardizations| C[(PostgreSQL Staging\npublic.sheet_accidents)]
-    D[Web Portal Form\njuly_accidents_registry] -->|Portal Submissions| E[(PostgreSQL Portal Table\npublic.july_accidents_registry)]
+    D[Web Portal Form\nportal_accidents_registry] -->|Portal Submissions| E[(PostgreSQL Portal Table\npublic.portal_accidents_registry)]
     C -->|Trigger: trg_sheet_accidents_sync\nAdvisory Lock 777222333| G[(Production Master\npublic.core_accidents)]
-    E -->|Trigger: trg_july_accidents_registry_sync\nAdvisory Lock 777222333| G
+    E -->|Trigger: trg_portal_accidents_registry_sync\nAdvisory Lock 777222333| G
     G -->|is_deleted = FALSE| H[Active Master View:\npublic.active_core_accidents]
 ```
 

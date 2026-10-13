@@ -8,7 +8,7 @@
 | **Target Master Table** | public.core_partner_onboarding |
 | **Active Filtered View** | public.active_core_partner_onboarding |
 | **Staging Source 1** | public.sheet_driver_onboarding (Google Sheet Pipeline) |
-| **Staging Source 2** | public.july_form_onboarding (Web Portal Ingestion) |
+| **Staging Source 2** | public.portal_form_onboarding (Web Portal Ingestion) |
 | **Transactional Advisory Lock** | 777111222 |
 | **Technology Stack** | PostgreSQL PL/pgSQL, Real-Time Ingestion Triggers |
 
@@ -20,7 +20,7 @@ The **public.core_partner_onboarding** table serves as the company-wide **Master
 
 It consolidates incoming partner entries from both operational channels:
 1. **Google Sheets (sheet_driver_onboarding)**: Master onboarding submissions cleansed by Google Apps Script.
-2. **Web Portal (july_form_onboarding)**: Digital driver submissions from the LetzRyd Web Portal.
+2. **Web Portal (portal_form_onboarding)**: Digital driver submissions from the LetzRyd Web Portal.
 
 ### Consolidated Master Data Flow
 
@@ -39,11 +39,11 @@ It consolidates incoming partner entries from both operational channels:
 +---------------------------------------------------------------------------------+
                                          ^
                                          | AFTER INSERT / UPDATE Trigger
-                                         | (trg_july_form_onboarding_sync)
+                                         | (trg_portal_form_onboarding_sync)
                                          |
 +---------------------------------------------------------------------------------+
 |                          Web Portal Driver Submissions                          |
-|                       public.july_form_onboarding                               |
+|                       public.portal_form_onboarding                               |
 +---------------------------------------------------------------------------------+
                                          |
                                          v

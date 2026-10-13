@@ -19,9 +19,9 @@ This directory contains the production schema, real-time synchronization trigger
   │              public.core_adjustments                   │
   │     (Single Source of Truth - 15,835 clean rows)       │
   └────────────────────────────────────────────────────────┘
-              ▲ (trg_july_partner_adjustment_sync)
+              ▲ (trg_portal_partner_adjustment_sync)
               │
-  [ public.july_partner_adjustment ] (15 rows)
+  [ public.portal_partner_adjustment ] (15 rows)
               ▲
               │
     [ Web Portal: Adjustments Form ]
@@ -50,7 +50,7 @@ This directory contains the production schema, real-time synchronization trigger
 
 1. **1-to-1 Canonical Stacking (Zero Data Loss & Zero Overwrites)**:
    - Every row in `sheet_adjustments` maps to `ADJ-SHT-<id>` (15,820 rows).
-   - Every row in `july_partner_adjustment` maps to `ADJ-PORTAL-<id>` (15 rows).
+   - Every row in `portal_partner_adjustment` maps to `ADJ-PORTAL-<id>` (15 rows).
    - Distinct same-day adjustments for the same driver (e.g. ₹500 car wash and ₹500 AC repair) are **never merged or overwritten**.
 2. **Gapless 1..N ID Continuity**:
    - Zero sequence burning via transactional advisory lock `pg_advisory_xact_lock(777333444)` and manual counter initialization.
@@ -86,4 +86,4 @@ Calls `SELECT public.refresh_core_adjustments();` under transactional advisory l
 ```bash
 python automation_script.py --verify-triggers
 ```
-Validates that `trg_sheet_adjustments_sync`, `trg_july_partner_adjustment_sync`, and `trg_core_to_hisaab_adjustments` are active.
+Validates that `trg_sheet_adjustments_sync`, `trg_portal_partner_adjustment_sync`, and `trg_core_to_hisaab_adjustments` are active.

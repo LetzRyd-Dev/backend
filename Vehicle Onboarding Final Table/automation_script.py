@@ -3,7 +3,7 @@ LetzRyd - Vehicle Onboarding Final Table Automation & Reconciliation Engine
 ===========================================================================
 Synchronizes, backfills, and audits public.core_vehicle_onboarding as the 
 Single Source of Truth combining public.sheet_vehicle_onboarding and 
-public.july_vehicle_onboarding with Portal Priority.
+public.portal_vehicle_onboarding with Portal Priority.
 
 Usage:
     python automation_script.py --audit
@@ -55,7 +55,7 @@ def audit_health():
     cur.execute("SELECT count(*) as cnt FROM public.sheet_vehicle_onboarding;")
     sheet_count = cur.fetchone()['cnt']
 
-    cur.execute("SELECT count(*) as cnt FROM public.july_vehicle_onboarding;")
+    cur.execute("SELECT count(*) as cnt FROM public.portal_vehicle_onboarding;")
     portal_count = cur.fetchone()['cnt']
 
     cur.execute("SELECT count(*) as cnt FROM public.core_vehicle_onboarding;")
@@ -80,7 +80,7 @@ def audit_health():
 
     print(f"\n[+] Upstream Counts:")
     print(f"    - public.sheet_vehicle_onboarding : {sheet_count:,} rows")
-    print(f"    - public.july_vehicle_onboarding  : {portal_count:,} rows")
+    print(f"    - public.portal_vehicle_onboarding  : {portal_count:,} rows")
     print(f"\n[+] Master Table (public.core_vehicle_onboarding):")
     print(f"    - Total Records                   : {core_count:,}")
     print(f"    - Active (Live) Records           : {active_count:,}")
@@ -279,18 +279,18 @@ def run_backfill():
         """)
         print("[+] Initial sheet backfill completed.")
 
-        print("[*] Backfilling and overlaying records from july_vehicle_onboarding (Portal Priority)...")
+        print("[*] Backfilling and overlaying records from portal_vehicle_onboarding (Portal Priority)...")
         cur.execute("""
             DO $$
             DECLARE
                 j RECORD;
             BEGIN
-                FOR j IN SELECT * FROM public.july_vehicle_onboarding ORDER BY id ASC LOOP
+                FOR j IN SELECT * FROM public.portal_vehicle_onboarding ORDER BY id ASC LOOP
                     IF EXISTS (SELECT 1 FROM public.core_vehicle_onboarding WHERE registration_no = public.fn_clean_plate(j.vehicle_number)) THEN
                         UPDATE public.core_vehicle_onboarding
                         SET 
                             source_system = CASE WHEN sheet_vehicle_id IS NOT NULL THEN 'MERGED_PORTAL_SHEET' ELSE 'PORTAL_FORM' END,
-                            source_table = 'july_vehicle_onboarding',
+                            source_table = 'portal_vehicle_onboarding',
                             portal_vehicle_id = j.id,
                             letzryd_unique_no = COALESCE(NULLIF(j.letzryd_unique_no, ''), letzryd_unique_no),
                             chassis_no = COALESCE(NULLIF(j.chassis_number, ''), chassis_no),
@@ -403,7 +403,7 @@ def run_backfill():
                             chassis_review_flag, is_migrated, created_by, updated_by,
                             is_deleted, created_at, updated_at
                         ) VALUES (
-                            'PORTAL_FORM', 'july_vehicle_onboarding', j.id,
+                            'PORTAL_FORM', 'portal_vehicle_onboarding', j.id,
                             public.fn_clean_plate(j.vehicle_number), j.letzryd_unique_no, j.chassis_number, j.engine_number,
                             public.fn_clean_city_name(j.city_name), j.model, COALESCE(j.fuel_type, 'CNG'), j.color, j.dealer_name, j.registered_owner_name,
                             j.hp_details, j.mfg_date, j.received_allocated, j.delivery_month,

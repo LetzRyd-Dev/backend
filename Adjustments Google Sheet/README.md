@@ -1,6 +1,6 @@
 # LetzRyd Adjustments Google Sheet Pipeline & PostgreSQL Master Ingestion
 
-Real-time and batch synchronization engine bridging partner adjustment submissions from Google Sheets (`Adjustment-Form` in `Pan India Master Sheet.xlsx`) and the web portal form (`public.july_partner_adjustment`) into the centralized production PostgreSQL database (`public.core_adjustments`).
+Real-time and batch synchronization engine bridging partner adjustment submissions from Google Sheets (`Adjustment-Form` in `Pan India Master Sheet.xlsx`) and the web portal form (`public.portal_partner_adjustment`) into the centralized production PostgreSQL database (`public.core_adjustments`).
 
 ---
 
@@ -10,9 +10,9 @@ Real-time and batch synchronization engine bridging partner adjustment submissio
 graph TD
     A[Google Form / Response Sheet\n'Adjustment-Form'] -->|On-FormSubmit & On-Edit| B[Google Apps Script\nadjustments_pipeline_appscript.js]
     B -->|JDBC Batch Upsert with Standardizations| C[(PostgreSQL Staging\npublic.sheet_adjustments)]
-    D[Web Portal Form\njuly_partner_adjustment] -->|Portal Submissions| E[(PostgreSQL Portal Table\npublic.july_partner_adjustment)]
+    D[Web Portal Form\nportal_partner_adjustment] -->|Portal Submissions| E[(PostgreSQL Portal Table\npublic.portal_partner_adjustment)]
     C -->|Trigger: trg_sheet_adjustments_sync\nAdvisory Lock 777333444| G[(Production Master\npublic.core_adjustments)]
-    E -->|Trigger: trg_july_partner_adjustment_sync\nAdvisory Lock 777333444| G
+    E -->|Trigger: trg_portal_partner_adjustment_sync\nAdvisory Lock 777333444| G
     G -->|is_deleted = FALSE| H[Active Master View:\npublic.active_core_adjustments]
 ```
 

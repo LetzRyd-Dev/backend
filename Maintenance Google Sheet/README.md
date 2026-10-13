@@ -24,7 +24,7 @@ graph TD
     A[Google Sheet: Daily Status / Attendance Tracker] -->|On-Edit & Sliding Window Sync| B[Google Apps Script: maintenance_pipeline_appscript.js]
     B -->|JDBC Parameterized Batch Upsert| C[(PostgreSQL Staging: public.sheet_vehicle_status)]
     C -->|Trigger: trg_extract_maintenance_from_sheet_status| D[(PostgreSQL Staging: public.sheet_maintenance)]
-    E[LetzRyd Web Portal: july_maintenance_in / out] -->|Portal Inward / Outward Events| F[(PostgreSQL Master: public.core_maintenance)]
+    E[LetzRyd Web Portal: portal_maintenance_in / out] -->|Portal Inward / Outward Events| F[(PostgreSQL Master: public.core_maintenance)]
     D -->|Consolidation & Reconciliation ETL| F
     F -->|Downtime Window Matching| G[Master Daily Ledger: public.core_daily_vehicle_status]
     G -->|Rent Waiver: WORKSHOP_MAINTENANCE| H[Hisaab Driver Settlement Engine]

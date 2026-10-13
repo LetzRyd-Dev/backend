@@ -4,7 +4,7 @@
 -- Master Table   : public.core_dropoffs (Single Source of Truth)
 -- Filtered View  : public.active_core_dropoffs (WHERE is_deleted = FALSE)
 -- Source 1       : public.sheet_dropoffs (Google Sheets Drop off History - 6,698 rows)
--- Source 2       : public.july_vehicle_dropoffs (LetzRyd Web Portal Dropoff Form - 174 rows)
+-- Source 2       : public.portal_vehicle_dropoffs (LetzRyd Web Portal Dropoff Form - 174 rows)
 -- Live Row Count : 6,897 Total (6,608 Active, 289 Soft-Deleted, 0 Sequence Gaps)
 -- Host           : YOUR_DB_HOST_HERE:5432
 -- Database       : postgres
@@ -38,7 +38,7 @@ CREATE INDEX IF NOT EXISTS idx_sheet_dropoffs_vehicle ON public.sheet_dropoffs (
 CREATE INDEX IF NOT EXISTS idx_sheet_dropoffs_return_date ON public.sheet_dropoffs (return_date);
 CREATE INDEX IF NOT EXISTS idx_sheet_dropoffs_source_row ON public.sheet_dropoffs (source_row);
 
-CREATE TABLE IF NOT EXISTS public.july_vehicle_dropoffs (
+CREATE TABLE IF NOT EXISTS public.portal_vehicle_dropoffs (
     id SERIAL PRIMARY KEY,
     vehicle_number VARCHAR(20) NOT NULL,
     city_name VARCHAR(50),
@@ -54,8 +54,8 @@ CREATE TABLE IF NOT EXISTS public.july_vehicle_dropoffs (
     updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')
 );
 
-CREATE INDEX IF NOT EXISTS idx_july_dropoffs_vehicle ON public.july_vehicle_dropoffs (vehicle_number);
-CREATE INDEX IF NOT EXISTS idx_july_dropoffs_date ON public.july_vehicle_dropoffs (return_date);
+CREATE INDEX IF NOT EXISTS idx_portal_dropoffs_vehicle ON public.portal_vehicle_dropoffs (vehicle_number);
+CREATE INDEX IF NOT EXISTS idx_portal_dropoffs_date ON public.portal_vehicle_dropoffs (return_date);
 
 -- ------------------------------------------------------------------------------
 -- 2. MASTER SINGLE SOURCE OF TRUTH: public.core_dropoffs
@@ -414,8 +414,8 @@ CREATE TRIGGER trg_sheet_dropoffs_sync
 AFTER INSERT OR UPDATE OR DELETE ON public.sheet_dropoffs
 FOR EACH ROW EXECUTE FUNCTION public.fn_sync_sheet_dropoffs();
 
--- 5.2 Trigger Function: fn_sync_july_vehicle_dropoffs()
-CREATE OR REPLACE FUNCTION public.fn_sync_july_vehicle_dropoffs()
+-- 5.2 Trigger Function: fn_sync_portal_vehicle_dropoffs()
+CREATE OR REPLACE FUNCTION public.fn_sync_portal_vehicle_dropoffs()
 RETURNS TRIGGER AS $$
 DECLARE
     v_clean_veh VARCHAR(20);
@@ -598,7 +598,7 @@ BEGIN
     RETURN NEW;
 EXCEPTION WHEN OTHERS THEN
     -- Exception Shield: Protect source table from downstream failures
-    RAISE WARNING 'Shielding active: fn_sync_july_vehicle_dropoffs failed to sync to core_dropoffs: %, SQLSTATE: %', SQLERRM, SQLSTATE;
+    RAISE WARNING 'Shielding active: fn_sync_portal_vehicle_dropoffs failed to sync to core_dropoffs: %, SQLSTATE: %', SQLERRM, SQLSTATE;
     IF TG_OP = 'DELETE' THEN
         RETURN OLD;
     ELSE
@@ -609,11 +609,11 @@ $$ LANGUAGE plpgsql;
 
 DO $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'july_vehicle_dropoffs') THEN
-        DROP TRIGGER IF EXISTS trg_july_vehicle_dropoffs_sync ON public.july_vehicle_dropoffs;
-        CREATE TRIGGER trg_july_vehicle_dropoffs_sync
-        AFTER INSERT OR UPDATE OR DELETE ON public.july_vehicle_dropoffs
-        FOR EACH ROW EXECUTE FUNCTION public.fn_sync_july_vehicle_dropoffs();
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'portal_vehicle_dropoffs') THEN
+        DROP TRIGGER IF EXISTS trg_portal_vehicle_dropoffs_sync ON public.portal_vehicle_dropoffs;
+        CREATE TRIGGER trg_portal_vehicle_dropoffs_sync
+        AFTER INSERT OR UPDATE OR DELETE ON public.portal_vehicle_dropoffs
+        FOR EACH ROW EXECUTE FUNCTION public.fn_sync_portal_vehicle_dropoffs();
     END IF;
 END $$;
 
@@ -773,10 +773,10 @@ BEGIN
         END IF;
     END LOOP;
 
-    -- Step 6.2: Ingest & Merge from july_vehicle_dropoffs
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'july_vehicle_dropoffs') THEN
+    -- Step 6.2: Ingest & Merge from portal_vehicle_dropoffs
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'portal_vehicle_dropoffs') THEN
         FOR p IN 
-            SELECT * FROM public.july_vehicle_dropoffs 
+            SELECT * FROM public.portal_vehicle_dropoffs 
             ORDER BY id ASC
         LOOP
             v_clean_veh := UPPER(REGEXP_REPLACE(COALESCE(p.vehicle_number, ''), '[^A-Za-z0-9]', '', 'g'));
@@ -969,7 +969,7 @@ COMMENT ON TABLE public.core_dropoffs IS 'Consolidated Master Single Source of T
 COMMENT ON COLUMN public.core_dropoffs.id IS 'Gapless continuous primary key manually assigned via MAX(id) + 1 with advisory lock 777444555.';
 COMMENT ON COLUMN public.core_dropoffs.dropoff_id IS 'Plain numerical business identifier matching id::TEXT (e.g. 1578).';
 COMMENT ON COLUMN public.core_dropoffs.sheet_dropoff_id IS 'Foreign key reference linking directly to public.sheet_dropoffs(dropoff_id).';
-COMMENT ON COLUMN public.core_dropoffs.portal_dropoff_id IS 'Foreign key reference linking directly to public.july_vehicle_dropoffs(id).';
+COMMENT ON COLUMN public.core_dropoffs.portal_dropoff_id IS 'Foreign key reference linking directly to public.portal_vehicle_dropoffs(id).';
 COMMENT ON COLUMN public.core_dropoffs.return_date IS 'Standardized ISO calendar date when vehicle was returned to hub custody.';
 COMMENT ON COLUMN public.core_dropoffs.return_type IS 'Operational classification (Attrition, Repair and Maintenance, Force Recovery).';
 COMMENT ON COLUMN public.core_dropoffs.driver_id IS 'Identifier linking driver to core_partner_onboarding.';
@@ -983,7 +983,7 @@ COMMENT ON COLUMN public.core_dropoffs.damage_penalty IS 'Signed negative liabil
 COMMENT ON COLUMN public.core_dropoffs.total_liability IS 'Combined signed driver deduction: negative_balance + pending_dues + damage_penalty.';
 COMMENT ON COLUMN public.core_dropoffs.remarks IS 'Inspection notes and handover comments.';
 COMMENT ON COLUMN public.core_dropoffs.data_source IS 'Provenance of dropoff record: GOOGLE_SHEET, PORTAL_FORM, or MERGED.';
-COMMENT ON COLUMN public.core_dropoffs.source_reference_id IS 'Plain numerical pointer back to source row in sheet_dropoffs or july_vehicle_dropoffs.';
+COMMENT ON COLUMN public.core_dropoffs.source_reference_id IS 'Plain numerical pointer back to source row in sheet_dropoffs or portal_vehicle_dropoffs.';
 COMMENT ON COLUMN public.core_dropoffs.is_deleted IS 'Soft-delete flag protecting historical ledger entries.';
 COMMENT ON COLUMN public.core_dropoffs.deleted_at IS 'IST timestamp when row was soft-deleted.';
 COMMENT ON COLUMN public.core_dropoffs.created_at IS 'IST timestamp when record was created.';
